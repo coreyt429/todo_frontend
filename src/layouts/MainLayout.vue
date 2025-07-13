@@ -4,7 +4,7 @@
       <q-toolbar>
         <q-btn flat dense round icon="menu" aria-label="Menu" @click="toggleLeftDrawer" />
 
-        <q-toolbar-title> Quasar App </q-toolbar-title>
+        <q-toolbar-title> Todo List</q-toolbar-title>
 
         <div>Quasar v{{ $q.version }}</div>
       </q-toolbar>
@@ -38,16 +38,16 @@ onMounted(() => {
 
 const linksList = [
   {
-    title: 'Docs',
-    caption: 'quasar.dev',
-    icon: 'school',
-    link: 'https://quasar.dev',
+    title: 'All',
+    caption: 'all tasks',
+    icon: 'tasks',
+    link: '/#/',
   },
   {
-    title: 'Github',
-    caption: 'github.com/quasarframework',
-    icon: 'code',
-    link: 'https://github.com/quasarframework',
+    title: 'Today',
+    caption: 'Tasks for today',
+    icon: 'today',
+    link: '/#/today',
   },
   {
     title: 'Discord Chat Channel',
@@ -84,7 +84,6 @@ const linksList = [
 const leftDrawerOpen = ref(false)
 
 function toggleLeftDrawer() {
-  console.log('Loaded tasks:', todoStore.tasks[0].comment)
   leftDrawerOpen.value = !leftDrawerOpen.value
 }
 </script>
