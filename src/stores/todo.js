@@ -10,8 +10,8 @@ export const useTodoStore = defineStore('todo', {
       status: ['not_started', 'in_progress', 'blocked', 'Not set'],
       priority: ['low', 'medium', 'high', 'Not set'],
       date: {
-        start: date.formatDate(new Date('1900-01-01'), 'YYYY-MM-DD'),
-        end: date.formatDate(new Date('2100-01-01'), 'YYYY-MM-DD'),
+        start: new Date('1900-01-01').setHours(0, 0, 0, 0),
+        end: new Date('2100-01-01').setHours(24, 0, 0, 0),
       },
       search: '',
     },
@@ -19,7 +19,46 @@ export const useTodoStore = defineStore('todo', {
 
   getters: {
     taskById: (state) => (task_id) => state.allTasks.find((t) => t.task_id === task_id),
-    //   filteredTasks: (state) => state.allTasks.filter((t) => !t.completed),
+    startDate: (state) => (target) => {
+      const now = new Date()
+      const dayOfWeek = now.getDay()
+      const diffToSunday = now.getDate() - dayOfWeek
+      const firstDayOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1)
+      switch (target) {
+        case 'today':
+          return new Date(new Date().setHours(0, 0, 0, 0))
+        case 'week':
+          return new Date(now.setDate(diffToSunday)).setHours(0, 0, 0, 0)
+        case 'month':
+          return firstDayOfMonth.setHours(0, 0, 0, 0)
+        case 'all':
+          return new Date('1900-01-01').setHours(0, 0, 0, 0)
+        case 'overdue':
+          return new Date('1900-01-01').setHours(0, 0, 0, 0)
+        default:
+          return state.filters.date.start
+      }
+    },
+    endDate: (state) => (target) => {
+      const now = new Date()
+      const dayOfWeek = now.getDay()
+      const diffToSaturday = now.getDate() + (6 - dayOfWeek)
+      const lastDayOfMonth = new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0)
+      switch (target) {
+        case 'today':
+          return new Date(new Date().setHours(24, 0, 0, 0))
+        case 'week':
+          return new Date(now.setDate(diffToSaturday)).setHours(24, 0, 0, 0)
+        case 'month':
+          return lastDayOfMonth.setHours(24, 0, 0, 0)
+        case 'all':
+          return new Date('2100-01-01').setHours(24, 0, 0, 0)
+        case 'overdue':
+          return now
+        default:
+          return state.filters.date.start
+      }
+    },
   },
 
   actions: {
@@ -156,10 +195,33 @@ export const useTodoStore = defineStore('todo', {
       }).length
     },
     async addTask(task) {
+      if (!task) {
+        const now = new Date()
+        const todayAtFivePM = new Date(
+          now.getFullYear(),
+          now.getMonth(),
+          now.getDate(),
+          17, // 5:00 PM
+          0,
+          0,
+          0,
+        ).toISOString()
+
+        task = {
+          name: 'New Task',
+          status: 'not_started',
+          priority: 'low',
+          timestamps: {
+            due: todayAtFivePM,
+            tickle: todayAtFivePM,
+          },
+        }
+      }
       const taskId = await createTask(task)
       task.task_id = taskId
       this.allTasks.push(task)
       this.applyFilters()
+      this.setCurrentTask(task)
     },
     async updateTask(taskId, updates) {
       const success = await updateTask(taskId, updates)

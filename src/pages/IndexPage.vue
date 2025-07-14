@@ -32,6 +32,9 @@ const props = defineProps({
     default: null,
   },
 })
+
+console.log('startDate:', props.startDate, 'endDate:', props.endDate)
+
 onMounted(() => {
   if (props.startDate && props.endDate) {
     console.log('Start and end dates provided:', props.startDate, props.endDate)
@@ -45,6 +48,22 @@ onMounted(() => {
     console.log('No start or end date provided')
   }
 })
+
+watch(
+  () => [props.startDate, props.endDate],
+  ([start, end]) => {
+    if (start && end) {
+      console.log('Updated start/end from route props:', start, end)
+      todoStore.setFilters({
+        date: {
+          start,
+          end,
+        },
+      })
+    }
+  },
+  { immediate: true },
+)
 
 watch(
   () => todoStore.currentTaskId,

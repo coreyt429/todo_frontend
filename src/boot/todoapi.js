@@ -17,6 +17,7 @@ const api = axios.create({
  * @returns {Promise<string>} task_id of the newly created task.
  */
 async function createTask(taskData) {
+  console.log('Creating task with data:', taskData)
   const { data } = await api.post('/task/', taskData)
   return data.task_id
 }
@@ -29,6 +30,7 @@ async function createTask(taskData) {
  */
 async function updateTask(taskId, updates) {
   try {
+    console.log('Updating task:', taskId, 'with updates:', updates)
     const response = await api.put(`/task/${taskId}`, updates)
     return response.status === 200
   } catch (error) {

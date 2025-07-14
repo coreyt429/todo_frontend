@@ -30,8 +30,9 @@
 import { useTodoStore } from 'stores/todo'
 const todoStore = useTodoStore()
 const status_icons = {
-  not_started: 'hourglass_empty',
-  in_progress: 'hourglass_full',
+  not_started: 'inbox',
+  in_progress: 'construction',
+  blocked: 'block',
   completed: 'check_circle',
 }
 const priority_colors = {
