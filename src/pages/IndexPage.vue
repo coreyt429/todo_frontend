@@ -31,6 +31,16 @@ const props = defineProps({
     required: false,
     default: null,
   },
+  title: {
+    type: String,
+    required: false,
+    default: 'Todo List',
+  },
+  type: {
+    type: Array,
+    required: false,
+    default: () => ['task', 'project'],
+  },
 })
 
 console.log('startDate:', props.startDate, 'endDate:', props.endDate)
@@ -39,15 +49,21 @@ onMounted(() => {
   if (props.startDate && props.endDate) {
     console.log('Start and end dates provided:', props.startDate, props.endDate)
     todoStore.setFilters({
-      date: {
-        start: props.startDate,
-        end: props.endDate,
-      },
+      startDate: props.startDate,
+      end: props.endDate,
     })
   } else {
     console.log('No start or end date provided')
   }
 })
+
+watch(
+  () => [props.type, props.endDate, props.startDate],
+  () => {
+    todoStore.setFilters(props)
+  },
+  { immediate: true },
+)
 
 watch(
   () => [props.startDate, props.endDate],
@@ -61,6 +77,14 @@ watch(
         },
       })
     }
+  },
+  { immediate: true },
+)
+
+watch(
+  () => props.title,
+  (newTitle) => {
+    todoStore.title = newTitle || 'Todo List'
   },
   { immediate: true },
 )

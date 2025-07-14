@@ -1,12 +1,14 @@
 <template>
   <ul>
-    <li>
+    <li style="display: flex; align-items: center; gap: 8px">
       <q-input
         filled
         v-model="todoStore.filters.search"
         label="Search tasks"
         @keyup="todoStore.applyFilters"
+        style="flex: 1"
       />
+      <q-btn icon="add" color="primary" round @click="() => todoStore.addTask()" />
     </li>
     <li v-for="task in todoStore.filteredTasks" :key="task.id">
       <q-card @click="open_task(task)">

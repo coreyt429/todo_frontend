@@ -3,17 +3,17 @@ import { createTask, updateTask, deleteTask, listTasks } from '../boot/todoapi'
 import { date } from 'quasar'
 export const useTodoStore = defineStore('todo', {
   state: () => ({
+    title: 'Todo List',
     filteredTasks: [],
     allTasks: [],
     currentTaskId: null,
     filters: {
       status: ['not_started', 'in_progress', 'blocked', 'Not set'],
       priority: ['low', 'medium', 'high', 'Not set'],
-      date: {
-        start: new Date('1900-01-01').setHours(0, 0, 0, 0),
-        end: new Date('2100-01-01').setHours(24, 0, 0, 0),
-      },
+      startDate: new Date('1900-01-01').setHours(0, 0, 0, 0),
+      endDate: new Date('2100-01-01').setHours(24, 0, 0, 0),
       search: '',
+      type: ['project', 'task'],
     },
   }),
 
@@ -36,7 +36,7 @@ export const useTodoStore = defineStore('todo', {
         case 'overdue':
           return new Date('1900-01-01').setHours(0, 0, 0, 0)
         default:
-          return state.filters.date.start
+          return state.filters.startDate
       }
     },
     endDate: (state) => (target) => {
@@ -56,7 +56,7 @@ export const useTodoStore = defineStore('todo', {
         case 'overdue':
           return now
         default:
-          return state.filters.date.start
+          return state.filters.startDate
       }
     },
   },
@@ -73,16 +73,11 @@ export const useTodoStore = defineStore('todo', {
     },
     setFilters(filters) {
       console.log('Setting filters:', filters)
-      console.log('before:', this.filters.date.start, this.filters.date.end)
-      // this.filters = { ...this.filters, ...filters }
-      console.log('step one:', this.filters.date.start, this.filters.date.end)
-
-      if (filters.date) {
-        this.filters.date.start = filters.date.start
-        this.filters.date.end = filters.date.end
-      }
-      console.log('after:', this.filters.date.start, this.filters.date.end)
-
+      Object.keys(filters).forEach((key) => {
+        if (filters[key] !== undefined) {
+          this.filters[key] = filters[key]
+        }
+      })
       console.log('Updated filters:', this.filters)
       this.applyFilters()
     },
@@ -98,34 +93,25 @@ export const useTodoStore = defineStore('todo', {
           ),
         ],
         priority: ['Not set', ...new Set(this.allTasks.map((task) => task.priority))],
-        date: {
-          start: date.formatDate(new Date('1900-01-01'), 'YYYY-MM-DD'),
-          end: date.formatDate(new Date('2100-01-01'), 'YYYY-MM-DD'),
-        },
+        startDate: date.formatDate(new Date('1900-01-01'), 'YYYY-MM-DD'),
+        endDate: date.formatDate(new Date('2100-01-01'), 'YYYY-MM-DD'),
+        type: 'task',
         search: '',
       }
       this.applyFilters()
     },
     applyFilters() {
-      console.log('applyFilters:', this.filters.date.start, this.filters.date.end)
-
       this.filteredTasks = this.allTasks.filter((task) => {
         const matchesStatus = this.filters.status.includes(task.status || 'Not set')
-
+        const matchesType = this.filters.type.includes(task.type || 'Not set')
         const matchesPriority = this.filters.priority.includes(task.priority || 'Not set')
-        console.log('matchesPriority:', matchesPriority)
-        console.log(task.priority || 'Not set')
-        console.log('matchesStatus:', matchesStatus, 'matchesPriority:', matchesPriority)
         const matchesDate = (() => {
           let dueDate = null
           if (task.timestamps.due) {
-            console.log('task.timestamps.due:', task.timestamps.due)
             dueDate = new Date(task.timestamps.due)
-            console.log('dueDate:', dueDate)
           }
           let tickleDate = null
           if (task.timestamps.tickle) {
-            console.log('task.timestamps.tickle:', task.timestamps.tickle)
             tickleDate = new Date(task.timestamps.tickle)
           }
 
@@ -133,37 +119,24 @@ export const useTodoStore = defineStore('todo', {
           if (!dueDate && !tickleDate) {
             return true
           }
-          console.log(dueDate || 'no due date', tickleDate || 'no tickle date')
           // Check if either dueDate or tickleDate is within the date range
           const isDueInRange = dueDate
-            ? date.isBetweenDates(dueDate, this.filters.date.start, this.filters.date.end, {
+            ? date.isBetweenDates(dueDate, this.filters.startDate, this.filters.endDate, {
                 format: 'YYYY-MM-DDTHH:mm:ss.SSSSSSZ',
               })
             : false
-          console.log('isDueInRange', isDueInRange)
-          console.log('filter start:', this.filters.date.start, 'end:', this.filters.date.end)
-          console.log('dueDate:', dueDate, 'tickleDate:', tickleDate)
           const isTickleInRange = tickleDate
-            ? date.isBetweenDates(tickleDate, this.filters.date.start, this.filters.date.end, {
+            ? date.isBetweenDates(tickleDate, this.filters.startDate, this.filters.endDate, {
                 format: 'YYYY-MM-DDTHH:mm:ss.SSSSSSZ',
               })
             : false
-          console.log('isTickleInRange', isTickleInRange)
-
           return isDueInRange || isTickleInRange
         })()
         const matchesSearch = JSON.stringify(task)
           .toLowerCase()
           .includes(this.filters.search.toLowerCase())
-        console.log('matches:', {
-          matchesStatus,
-          matchesPriority,
-          matchesDate,
-          matchesSearch,
-        })
-        return matchesStatus && matchesPriority && matchesDate && matchesSearch
+        return matchesStatus && matchesPriority && matchesDate && matchesSearch && matchesType
       })
-      console.log('Filtered tasks:', this.filteredTasks)
       console.log('Total tasks:', this.allTasks.length)
       console.log('Filtered tasks count:', this.filteredTasks.length)
     },
@@ -180,10 +153,10 @@ export const useTodoStore = defineStore('todo', {
           }
 
           const isDueInRange = dueDate
-            ? date.isBetween(dueDate, tmpFilters.date.start, tmpFilters.date.end, 'YYYY-MM-DD')
+            ? date.isBetween(dueDate, tmpFilters.startDate, tmpFilters.endDate, 'YYYY-MM-DD')
             : false
           const isTickleInRange = tickleDate
-            ? date.isBetween(tickleDate, tmpFilters.date.start, tmpFilters.date.end, 'YYYY-MM-DD')
+            ? date.isBetween(tickleDate, tmpFilters.startDate, tmpFilters.endDate, 'YYYY-MM-DD')
             : false
 
           return isDueInRange || isTickleInRange
@@ -217,6 +190,7 @@ export const useTodoStore = defineStore('todo', {
           },
         }
       }
+      console.log('addTask called with task:', task)
       const taskId = await createTask(task)
       task.task_id = taskId
       this.allTasks.push(task)
@@ -235,8 +209,11 @@ export const useTodoStore = defineStore('todo', {
     },
     async deleteTask(taskId) {
       const success = await deleteTask(taskId)
+      console.log('deleteTask called with taskId:', taskId, 'success:', success)
       if (success) {
-        this.allTasks = this.allTasks.filter((t) => t.id !== taskId)
+        console.log(this.allTasks.length, ' tasks before deletion')
+        this.allTasks = this.allTasks.filter((t) => t.task_id !== taskId)
+        console.log(this.allTasks.length, ' tasks after deletion')
         this.applyFilters()
       }
     },

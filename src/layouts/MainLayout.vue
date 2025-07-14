@@ -4,7 +4,7 @@
       <q-toolbar>
         <q-btn flat dense round icon="menu" aria-label="Menu" @click="toggleLeftDrawer" />
 
-        <q-toolbar-title> Todo List</q-toolbar-title>
+        <q-toolbar-title> {{ todoStore.title }} </q-toolbar-title>
 
         <div>Quasar v{{ $q.version }}</div>
       </q-toolbar>
@@ -38,34 +38,41 @@ onMounted(() => {
 
 const linksList = [
   {
-    title: 'All',
-    caption: 'all tasks',
-    icon: 'all_inclusive',
+    title: 'Today',
+    caption: 'Tasks For Today',
+    icon: 'today',
     link: '/#/',
   },
   {
     title: 'Overdue',
-    caption: 'Overdue tasks',
+    caption: 'Tasks That Are Overdue',
     icon: 'assignment_late',
     link: '/#/overdue',
   },
-  {
-    title: 'Today',
-    caption: 'Tasks for today',
-    icon: 'today',
-    link: '/#/today',
-  },
+
   {
     title: 'This Week',
-    caption: 'Tasks for the current week',
+    caption: 'Tasks For This Week',
     icon: 'view_week',
     link: '/#/week',
   },
   {
     title: 'This Month',
-    caption: 'Tasks for the current month',
+    caption: 'Tasks For This Month',
     icon: 'calendar_month',
     link: '/#/month',
+  },
+  {
+    title: 'All',
+    caption: 'All Tasks',
+    icon: 'all_inclusive',
+    link: '/#/all',
+  },
+  {
+    title: 'Projects',
+    caption: 'Project Overview',
+    icon: 'view_timeline',
+    link: '/#/projects',
   },
 ]
 

@@ -86,12 +86,7 @@ const buttons = ref({
     color: 'secondary',
     action: () => load_editorContent(),
   },
-  Add: {
-    label: 'Add',
-    icon: 'add',
-    color: 'positive',
-    action: () => todoStore.addTask(),
-  },
+
   Delete: {
     label: 'Delete',
     icon: 'delete',
@@ -139,7 +134,9 @@ load_editorContent()
 watch(
   () => todoStore.currentTaskId,
   (newTaskId) => {
+    console.log('Current task ID changed:', newTaskId)
     if (newTaskId) {
+      console.log('Loading editor content for new task ID:', newTaskId)
       load_editorContent()
     }
     console.log('Current task updated:', newTaskId)
