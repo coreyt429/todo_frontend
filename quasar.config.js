@@ -78,7 +78,9 @@ export default defineConfig((/* ctx */) => {
     plugins: ['todoTasks'],
     // https://v2.quasar.dev/quasar-cli-vite/quasar-config-file#framework
     framework: {
-      config: {},
+      config: {
+        dark: 'auto', // auto, always, never
+      },
 
       // iconSet: 'material-icons', // Quasar icon set
       // lang: 'en-US', // Quasar language pack

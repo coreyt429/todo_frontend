@@ -2,7 +2,7 @@
   <q-page class="flex">
     <div class="row full-width">
       <div cols="6" class="col left-column">
-        <TaskList />
+        <TaskList :label="props.label" />
       </div>
       <div v-if="todoStore.currentTaskId" cols="6" class="col right-column">
         <TaskView />
@@ -34,7 +34,12 @@ const props = defineProps({
   title: {
     type: String,
     required: false,
-    default: 'Todo List',
+    default: 'Title Missing',
+  },
+  label: {
+    type: String,
+    required: false,
+    default: 'Label Missing',
   },
   type: {
     type: Array,

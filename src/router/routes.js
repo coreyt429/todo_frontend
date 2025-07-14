@@ -58,6 +58,15 @@ const filtered_routes = [
     endDate: new Date('2100-01-01').setHours(24, 0, 0, 0),
     type: ['project'],
   },
+  {
+    route: '/templates',
+    identity: 'templates',
+    label: 'Templates',
+    caption: 'Task Templates',
+    startDate: new Date('1900-01-01').setHours(0, 0, 0, 0),
+    endDate: new Date('2100-01-01').setHours(24, 0, 0, 0),
+    type: ['template'],
+  },
 ]
 
 const routes = []
@@ -78,6 +87,7 @@ filtered_routes.forEach((route) => {
           endDate: new Date(route.endDate),
           type: route.type,
           title: route.caption,
+          label: route.label,
         },
       },
     ],

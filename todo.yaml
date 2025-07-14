@@ -1,0 +1,9 @@
+templates:
+  - need to auto build tasks from templates, see old frontend code
+taskView:
+  - if a task is based on a template, we should display a graphic that indicates:
+      - completions per week over the last 52 weeks
+      - similar to or using pixela
+review:
+  - need a guided review process for tasks
+  - see old code for inspiration

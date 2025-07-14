@@ -119,11 +119,24 @@ function save_editorContent() {
     console.log('Current language:', states.lang)
     let content = states.content
     if (states.lang === 'yaml') {
-      content = yaml.load(states.content)
-      console.log('Parsed YAML content:', content)
+      try {
+        console.log('Parsing YAML content')
+        content = yaml.load(states.content)
+        console.log('Parsed YAML content:', content)
+      } catch (e) {
+        console.error('Failed to parse YAML:', e)
+        alert('Invalid YAML format. Please check your input.')
+        return
+      }
     } else {
-      content = JSON.parse(states.content)
-      console.log('Parsed JSON content:', content)
+      try {
+        content = JSON.parse(states.content)
+        console.log('Parsed JSON content:', content)
+      } catch (e) {
+        console.error('Failed to parse JSON:', e)
+        alert('Invalid JSON format. Please check your input.')
+        return
+      }
     }
     todoStore.updateTask(todoStore.currentTaskId, content)
   }
@@ -151,9 +164,19 @@ watch(
     console.log('Language changed:', newLang)
     if (states.content !== null) {
       if (newLang === 'yaml') {
-        states.content = yaml.dump(yaml.load(states.content))
+        try {
+          states.content = yaml.dump(yaml.load(states.content))
+        } catch (e) {
+          console.error('Failed to convert JSON to YAML:', e)
+          alert('Invalid JSON format. Please check your input.')
+        }
       } else {
-        states.content = JSON.stringify(yaml.load(states.content), null, 2)
+        try {
+          states.content = JSON.stringify(yaml.load(states.content), null, 2)
+        } catch (e) {
+          console.error('Failed to convert YAML to JSON:', e)
+          alert('Invalid YAML format. Please check your input.')
+        }
       }
     }
   },

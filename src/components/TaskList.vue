@@ -1,5 +1,28 @@
 <template>
   <ul>
+    <li>
+      <div class="q-pa-md q-gutter-sm">
+        <q-breadcrumbs>
+          <q-breadcrumbs-el
+            :label="props.label"
+            clickable
+            @click="todoStore.setFilters({ parent: null })"
+          />
+          <q-breadcrumbs-el
+            v-for="ancestor in todoStore.getAncestors(todoStore.filters.parent)"
+            :key="ancestor.task_id"
+            :label="ancestor.name"
+            clickable
+            @click="todoStore.setFilters({ parent: ancestor.task_id })"
+          />
+          <q-breadcrumbs-el
+            v-if="todoStore.filters.parent"
+            :label="todoStore.taskById(todoStore.filters.parent)?.name"
+            :key="todoStore.filters.parent"
+          />
+        </q-breadcrumbs>
+      </div>
+    </li>
     <li style="display: flex; align-items: center; gap: 8px">
       <q-input
         filled
@@ -8,7 +31,30 @@
         @keyup="todoStore.applyFilters"
         style="flex: 1"
       />
-      <q-btn icon="add" color="primary" round @click="() => todoStore.addTask()" />
+      <q-btn-dropdown icon="add" color="primary" no-caps label="New">
+        <q-list>
+          <q-item clickable v-ripple @click="todoStore.addTask('task')">
+            <q-item-section>Task</q-item-section>
+          </q-item>
+          <q-item clickable v-ripple @click="todoStore.addTask('project')">
+            <q-item-section>Project</q-item-section>
+          </q-item>
+          <q-item clickable v-ripple @click="todoStore.addTask('template')">
+            <q-item-section>Template</q-item-section>
+          </q-item>
+        </q-list>
+      </q-btn-dropdown>
+    </li>
+
+    <li v-if="todoStore.filteredTasks.length === 0">
+      <q-card class="q-pa-md">
+        <q-card-section>
+          <div style="display: flex; align-items: center; gap: 16px">
+            <q-icon name="error_outline" color="negative" size="64px" />
+            <div style="font-size: 1.5rem">No tasks found</div>
+          </div>
+        </q-card-section>
+      </q-card>
     </li>
     <li v-for="task in todoStore.filteredTasks" :key="task.id">
       <q-card @click="open_task(task)">
@@ -18,7 +64,16 @@
               :icon="status_icons[task.status] || 'help_outline'"
               :color="priority_colors[task.priority] || 'grey'"
             />
-            <q-toolbar-title>{{ task.name }}</q-toolbar-title>
+            <q-toolbar-title>
+              {{ task.name }}
+              <div
+                class="text-caption"
+                @click.stop="todoStore.setFilters({ parent: task.task_id })"
+                style="cursor: pointer"
+              >
+                {{ todoStore.childrenById(task.task_id)?.length || 0 }} subtasks
+              </div>
+            </q-toolbar-title>
             <div class="text-caption">Due: {{ format_due_date(task.timestamps?.due ?? null) }}</div>
           </q-toolbar>
           <div class="text-subtitle2">{{ task.notes }}</div>
@@ -30,7 +85,16 @@
 
 <script setup>
 import { useTodoStore } from 'stores/todo'
+const props = defineProps({
+  label: {
+    type: String,
+    required: false,
+    default: 'Todo List',
+  },
+})
+
 const todoStore = useTodoStore()
+console.log('HERE:', todoStore.filters.parent)
 const status_icons = {
   not_started: 'inbox',
   in_progress: 'construction',
@@ -45,7 +109,7 @@ const priority_colors = {
 
 function open_task(task) {
   console.log('Opening task:', task)
-  console.log(task.task_id)
+  console.log(task.task_id || task.template_id)
   todoStore.setCurrentTask(task)
 }
 

@@ -50,6 +50,7 @@ async function deleteTask(taskId) {
     return response.status === 200
   } catch (error) {
     console.error('Failed to delete task:', error)
+    alert('Failed to delete task. ' + error.response.data.message)
     return false
   }
 }
@@ -61,6 +62,59 @@ async function deleteTask(taskId) {
 async function listTasks() {
   const { data } = await api.get('/task/')
   console.log('Fetched tasks:', data)
+  return data
+}
+
+/**
+ * Create a new template.
+ * @param {Object} templateData - The payload for the new template.
+ * @returns {Promise<string>} template_id of the newly created template.
+ */
+async function createTemplate(templateData) {
+  console.log('Creating template with data:', templateData)
+  const { data } = await api.post('/template/', templateData)
+  return data.template_id
+}
+
+/**
+ * Update an existing template.
+ * @param {string} templateId - UUID of the template to update.
+ * @param {Object} updates - Partial template data to update.
+ * @returns {Promise<boolean>} True if the template was updated successfully, false otherwise.
+ */
+async function updateTemplate(templateId, updates) {
+  try {
+    console.log('Updating template:', templateId, 'with updates:', updates)
+    const response = await api.put(`/template/${templateId}`, updates)
+    return response.status === 200
+  } catch (error) {
+    console.error('Failed to update template:', error)
+    return false
+  }
+}
+
+/**
+ * Delete a template.
+ * @param {string} templateId - UUID of the template to delete.
+ * @returns {Promise<boolean>} True if the template was deleted successfully, false otherwise.
+ */
+async function deleteTemplate(templateId) {
+  try {
+    const response = await api.delete(`/template/${templateId}`)
+    return response.status === 200
+  } catch (error) {
+    console.error('Failed to delete template:', error)
+    return false
+  }
+}
+
+/**
+ * Fetch all templates.
+ * @returns {Promise<Array>} List of templates.
+ */
+async function listTemplates() {
+  const { data } = await api.get('/template/')
+  console.log('Fetched templates:', data)
   return data
 }
 
@@ -77,6 +131,15 @@ export default ({ app }) => {
     listTasks,
   }
 }
-export { createTask, updateTask, deleteTask, listTasks }
+export {
+  createTask,
+  updateTask,
+  deleteTask,
+  listTasks,
+  createTemplate,
+  updateTemplate,
+  deleteTemplate,
+  listTemplates,
+}
 
 // The following functions can be used to interact with the Todo API
