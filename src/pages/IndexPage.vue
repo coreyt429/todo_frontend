@@ -88,7 +88,7 @@ watch(
   () => props.title,
   (newTitle) => {
     console.log('Updating title from props:', newTitle, todoStore.title)
-    todoStore.title = newTitle || 'Todo List'
+    ;((todoStore.title = newTitle || 'Todo List'), todoStore.setFilters({ parent: null }))
   },
   { immediate: true },
 )

@@ -1,4 +1,5 @@
 import { defineStore } from 'pinia'
+import { dateHelper } from 'src/plugins/dateUtils.js'
 import {
   createTask,
   updateTask,
@@ -10,30 +11,49 @@ import {
   deleteTemplate,
 } from '../boot/todoapi'
 import { date } from 'quasar'
-// import { get } from 'ace-builds-internal/lib/net'
+
+const filterDefaults = {
+  // Default filters for tasks
+  status: ['not_started', 'in_progress', 'blocked', 'Not set'],
+  priority: ['low', 'medium', 'high', 'Not set'],
+  startDate: dateHelper.All.Start,
+  endDate: dateHelper.All.End,
+  search: '',
+  type: ['project', 'task'],
+  parent: null,
+}
+
 export const useTodoStore = defineStore('todo', {
   state: () => ({
-    title: 'Todo List',
-    filteredTasks: [],
-    allTasks: [],
-    allTemplates: [],
-    currentTaskId: null,
+    title: 'Todo List', // Default title for the todo list
+    currentTaskId: null, // Holds the ID of the currently selected task or template
+    filteredTasks: [], // Current filtered task list
+    allTasks: [
+      {
+        name: 'Tasks Loading',
+        task_id: 'placeholder',
+        status: 'in_progress',
+        timestamps: { due: dateHelper.Today.BusinessClosing },
+      },
+    ], // All tasks fetched from the API
+    allTemplates: [], // All templates fetched from the API
     filters: {
-      status: ['not_started', 'in_progress', 'blocked', 'Not set'],
-      priority: ['low', 'medium', 'high', 'Not set'],
-      startDate: new Date('1900-01-01').setHours(0, 0, 0, 0),
-      endDate: new Date('2100-01-01').setHours(24, 0, 0, 0),
-      search: '',
-      type: ['project', 'task'],
+      // Default filters for tasks
+      status: filterDefaults.status,
+      priority: filterDefaults.priority,
+      startDate: filterDefaults.startDate,
+      endDate: filterDefaults.endDate,
+      search: filterDefaults.search,
+      type: filterDefaults.type,
       parent: null,
     },
   }),
 
   getters: {
-    getFilters: (state) => state.filters,
     getAncestors: (state) => (task_id) => {
-      console.log('getAncestors called from :', new Error().stack)
-      console.log('Getting ancestors for task ID:', task_id)
+      // Returns an array of ancestor tasks for the given task_id
+      // This is useful for displaying the task hierarchy in the UI
+      console.log(`getAncestors(${task_id}) called from:`, new Error().stack)
       const task = state.allTasks.find((t) => t.task_id === task_id)
       if (!task) {
         console.warn('Task not found for ID:', task_id)
@@ -51,83 +71,35 @@ export const useTodoStore = defineStore('todo', {
           break
         }
       }
-      console.log('Found ancestors:', ancestors)
       return ancestors.reverse()
     },
     taskById: (state) => (task_id) => {
-      console.log('taskById called from :', new Error().stack)
-      console.log('Getting task by ID:', task_id)
-      // console.log('All tasks:', state.allTasks)
-      console.log('All templates:', state.allTemplates)
+      // Returns the task or template by its ID
+      console.log(`taskById(${task_id}) called from:`, new Error().stack)
       return (
         state.allTasks.find((t) => t.task_id === task_id) ||
         state.allTemplates.find((t) => t.template_id === task_id)
       )
     },
-    childrenById: (state) => (task_id) => {
-      console.log('childrenById called from :', new Error().stack)
-      console.log('Getting children for task ID:', task_id)
-      const children =
-        state.allTasks.filter((t) => t.parent === task_id) ||
-        state.allTemplates.filter((t) => t.parent === task_id)
-      console.log('Found children:', children)
-      return children.length > 0 ? children : null
-    },
-    startDate: (state) => (target) => {
-      const now = new Date()
-      const dayOfWeek = now.getDay()
-      const diffToSunday = now.getDate() - dayOfWeek
-      const firstDayOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1)
-      switch (target) {
-        case 'today':
-          return new Date(new Date().setHours(0, 0, 0, 0))
-        case 'week':
-          return new Date(now.setDate(diffToSunday)).setHours(0, 0, 0, 0)
-        case 'month':
-          return firstDayOfMonth.setHours(0, 0, 0, 0)
-        case 'all':
-          return new Date('1900-01-01').setHours(0, 0, 0, 0)
-        case 'overdue':
-          return new Date('1900-01-01').setHours(0, 0, 0, 0)
-        default:
-          return state.filters.startDate
-      }
-    },
-    endDate: (state) => (target) => {
-      const now = new Date()
-      const dayOfWeek = now.getDay()
-      const diffToSaturday = now.getDate() + (6 - dayOfWeek)
-      const lastDayOfMonth = new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0)
-      switch (target) {
-        case 'today':
-          return new Date(new Date().setHours(24, 0, 0, 0))
-        case 'week':
-          return new Date(now.setDate(diffToSaturday)).setHours(24, 0, 0, 0)
-        case 'month':
-          return lastDayOfMonth.setHours(24, 0, 0, 0)
-        case 'all':
-          return new Date('2100-01-01').setHours(24, 0, 0, 0)
-        case 'overdue':
-          return now
-        default:
-          return state.filters.startDate
-      }
-    },
   },
 
   actions: {
     async loadTasks() {
-      console.log('loadTasks called from:', new Error().stack)
+      // Fetches all tasks and templates from the API and applies filters
+      console.log('loadTasks() called from:', new Error().stack)
       this.allTasks = await listTasks()
       this.allTemplates = await listTemplates()
-      setTimeout(() => {
-        this.checkTemplates()
-      }, 100)
-      console.log('Loaded tasks:', this.allTasks.length, 'and templates:', this.allTemplates.length)
       this.applyFilters()
+      setTimeout(() => {
+        alert(
+          'This is a placeholder alert for template checks.\n\nThis will be replaced with a more sophisticated notification system in the future.',
+        )
+        this.checkTemplates()
+      }, 10000)
     },
     setCurrentTask(task) {
-      console.log('Setting current task:', task)
+      // Sets the current task or template based on the provided task object
+      console.log(`setCurrentTask(${JSON.stringify(task)}) called from:`, new Error().stack)
       if (task.task_id) {
         this.currentTaskId = task.task_id
       } else if (task.template_id) {
@@ -135,241 +107,224 @@ export const useTodoStore = defineStore('todo', {
       } else {
         console.warn('Task does not have task_id or template_id:', task)
       }
-      console.log('Current task ID set to:', this.currentTaskId)
+    },
+    childrenById(task_id) {
+      // Returns an array of child tasks for the given task_id
+      console.log(`childrenById(${task_id}) called from:`, new Error().stack)
+      const children =
+        this.allTasks.filter((t) => t.parent === task_id) ||
+        this.allTemplates.filter((t) => t.parent === task_id)
+      return children.length > 0 ? children : null
     },
     setFilters(filters) {
-      console.log('HERE Setting filters:', filters)
+      console.log(`setFilters(${JSON.stringify(filters)}) called from:`, new Error().stack)
       Object.keys(filters).forEach((key) => {
         if (filters[key] !== undefined) {
           this.filters[key] = filters[key]
         }
       })
-      console.log('HERE Updated filters:', this.filters)
       this.applyFilters()
     },
     resetFilters() {
-      console.log('resetFilters')
-      this.filters = {
-        status: [
-          'Not set',
-          ...new Set(
-            this.allTasks
-              .map((task) => task.status)
-              .filter((status) => !['completed', 'cancelled', 'skipped'].includes(status)),
-          ),
-        ],
-        priority: ['Not set', ...new Set(this.allTasks.map((task) => task.priority))],
-        startDate: date.formatDate(new Date('1900-01-01'), 'YYYY-MM-DD'),
-        endDate: date.formatDate(new Date('2100-01-01'), 'YYYY-MM-DD'),
-        type: 'task',
-        search: '',
-      }
+      // Resets the filters to their default values
+      console.log('resetFilters() called from:', new Error().stack)
+      Object.keys(this.filters).forEach((key) => {
+        if (key in filterDefaults) {
+          this.filters[key] = filterDefaults[key]
+        } else {
+          delete this.filters[key]
+        }
+      })
       this.applyFilters()
     },
     applyFilters() {
-      console.log('HERE applyFilters called with filters:', this.filters)
-      if (this.filters.parent) {
-        console.log('HERE Applying filters with parent:', this.filters.parent)
-        this.filteredTasks = this.allTasks.filter((task) => task.parent === this.filters.parent)
-        console.log('HERE Filtered tasks after parent filter:', this.filteredTasks)
-        console.log('Filtered tasks count:', this.filteredTasks.length)
+      // Applies the current filters to the task list with a lock and timeout mechanism
+      console.log('applyFilters() called from:', new Error().stack)
+      if (this._applyFiltersLock) {
+        console.log('applyFilters() is already running, skipping...')
         return
       }
-      this.filteredTasks = this.allTasks.filter((task) => {
-        const matchesStatus = this.filters.status.includes(task.status || 'Not set')
-        const matchesType = this.filters.type.includes(task.type || 'Not set')
-        const matchesPriority = this.filters.priority.includes(task.priority || 'Not set')
-        const matchesDate = (() => {
-          let dueDate = null
-          if (task.timestamps.due) {
-            dueDate = new Date(task.timestamps.due)
-          }
-          let tickleDate = null
-          if (task.timestamps.tickle) {
-            tickleDate = new Date(task.timestamps.tickle)
-          }
+      this._applyFiltersLock = true
+      this.filteredTasks = this.getFilteredList({})
+      this._applyFiltersLock = false
+      console.log('applyFilters() completed.')
+    },
+    getDate(dateObj) {
+      // Returns a date object based on the provided dateObj
+      console.log(`getDate(${JSON.stringify(dateObj)}) called from:`, new Error().stack)
+      const realDate = typeof dateObj === 'function' ? dateObj() : dateObj
+      return realDate
+    },
+    matchTaskFilter(task, filterDefs) {
+      // Checks if a task matches the provided filter definitions
+      console.log(
+        `matchTaskFilter(${JSON.stringify(task)}, ${JSON.stringify(filterDefs)}) called from:`,
+        new Error().stack,
+      )
+      const matchesStatus = filterDefs.status.includes(task.status || 'Not set')
+      const matchesType = filterDefs.type.includes(task.type || 'Not set')
+      const matchesPriority = filterDefs.priority.includes(task.priority || 'Not set')
+      const matchesTemplate = !filterDefs.template || task.template_id === filterDefs.template
+      const matchesDate = (() => {
+        const dates = ['due', 'tickle']
+          .map((key) => task.timestamps[key] && new Date(task.timestamps[key]))
+          .filter(Boolean)
 
-          // If neither dueDate nor tickleDate exists, match the task
-          if (!dueDate && !tickleDate) {
-            return true
-          }
-          // Ensure startDate and endDate are Date objects (or get them from functions)
-          let startDate =
-            typeof this.filters.startDate === 'function'
-              ? this.filters.startDate()
-              : this.filters.startDate
-          let endDate =
-            typeof this.filters.endDate === 'function'
-              ? this.filters.endDate()
-              : this.filters.endDate
-          // Check if either dueDate or tickleDate is within the date range
-          const isDueInRange = dueDate
-            ? date.isBetweenDates(dueDate, startDate, endDate, {
-                format: 'YYYY-MM-DDTHH:mm:ss.SSSSSSZ',
-              })
-            : false
-          const isTickleInRange = tickleDate
-            ? date.isBetweenDates(tickleDate, startDate, endDate, {
-                format: 'YYYY-MM-DDTHH:mm:ss.SSSSSSZ',
-              })
-            : false
-          return isDueInRange || isTickleInRange
-        })()
-        const matchesSearch = JSON.stringify(task)
-          .toLowerCase()
-          .includes(this.filters.search.toLowerCase())
-        return matchesStatus && matchesPriority && matchesDate && matchesSearch && matchesType
-      })
-      if (this.filters.type.includes('template')) {
-        this.filteredTasks = [...this.filteredTasks, ...this.allTemplates]
-      }
-      this.filteredTasks.sort((a, b) => {
+        if (dates.length === 0) return true
+
+        const startDate = this.getDate(filterDefs.startDate)
+        const endDate = this.getDate(filterDefs.endDate)
+        return dates.some((dateObj) =>
+          date.isBetweenDates(dateObj, startDate, endDate, {
+            format: 'YYYY-MM-DDTHH:mm:ss.SSSSSSZ',
+          }),
+        )
+      })()
+      const matchesSearch = JSON.stringify(task)
+        .toLowerCase()
+        .includes(filterDefs.search.toLowerCase())
+      return (
+        matchesStatus &&
+        matchesPriority &&
+        matchesDate &&
+        matchesSearch &&
+        matchesType &&
+        matchesTemplate
+      )
+    },
+    tasklistSort(tasks) {
+      // sort task list by due date and priority
+      console.log(`tasklistSort(${JSON.stringify(tasks)}) called from:`, new Error().stack)
+      tasks.sort((a, b) => {
         const dueA = a.timestamps.due ? new Date(a.timestamps.due) : null
         const dueB = b.timestamps.due ? new Date(b.timestamps.due) : null
-
         if (dueA === null && dueB !== null) return -1
         if (dueA !== null && dueB === null) return 1
         if (dueA !== null && dueB !== null) {
           if (dueA < dueB) return -1
           if (dueA > dueB) return 1
         }
-
         const priorityOrder = { high: 1, medium: 2, low: 3 }
         const priorityA = priorityOrder[a.priority] || 4
         const priorityB = priorityOrder[b.priority] || 4
-
         return priorityA - priorityB
       })
-      console.log('Total tasks:', this.allTasks.length)
-      console.log('Filtered tasks count:', this.filteredTasks.length)
+      return tasks
+    },
+    getFilteredList(filterDefs = {}) {
+      // Returns a filtered list of tasks based on the provided filter definitions
+      console.log(`getFilteredList(${JSON.stringify(filterDefs)}) called from:`, new Error().stack)
+      // Merge default filters with provided filter definitions
+      Object.keys(this.filters).forEach((key) => {
+        if (!(key in filterDefs)) {
+          filterDefs[key] = this.filters[key]
+        }
+      })
+      // Short circuit if list is looking for children of a specific parent
+      if (filterDefs.parent) {
+        const children = this.childrenById(filterDefs.parent)
+        return children
+          ? children.filter((child) => filterDefs.status.includes(child.status || 'Not set'))
+          : []
+      }
+      // compile task list
+      const compiledtasks = []
+      compiledtasks.push(...this.allTasks)
+      if (filterDefs.type.includes('template')) {
+        compiledtasks.push(...this.allTemplates)
+      }
+      // Filter tasks
+      const matchedTasks = compiledtasks.filter((task) => this.matchTaskFilter(task, filterDefs))
+      // return sorted tasks
+      return this.tasklistSort(matchedTasks)
     },
     testFilters(tmpFilters) {
-      Object.keys(this.filters).forEach((key) => {
-        if (!(key in tmpFilters)) {
-          tmpFilters[key] = this.filters[key]
-        }
-      })
-      const filteredTasks = this.allTasks.filter((task) => {
-        const matchesStatus = tmpFilters.status.includes(task.status || 'Not set')
-        const matchesType = tmpFilters.type.includes(task.type || 'Not set')
-        const matchesPriority = tmpFilters.priority.includes(task.priority || 'Not set')
-        const matchesDate = (() => {
-          let dueDate = null
-          if (task.timestamps.due) {
-            dueDate = new Date(task.timestamps.due)
-          }
-          let tickleDate = null
-          if (task.timestamps.tickle) {
-            tickleDate = new Date(task.timestamps.tickle)
-          }
-
-          // If neither dueDate nor tickleDate exists, match the task
-          if (!dueDate && !tickleDate) {
-            return true
-          }
-          // Ensure startDate and endDate are Date objects (or get them from functions)
-          let startDate =
-            typeof tmpFilters.startDate === 'function'
-              ? tmpFilters.startDate()
-              : tmpFilters.startDate
-          let endDate =
-            typeof tmpFilters.endDate === 'function' ? tmpFilters.endDate() : tmpFilters.endDate
-          // Check if either dueDate or tickleDate is within the date range
-          const isDueInRange = dueDate
-            ? date.isBetweenDates(dueDate, startDate, endDate, {
-                format: 'YYYY-MM-DDTHH:mm:ss.SSSSSSZ',
-              })
-            : false
-          const isTickleInRange = tickleDate
-            ? date.isBetweenDates(tickleDate, startDate, endDate, {
-                format: 'YYYY-MM-DDTHH:mm:ss.SSSSSSZ',
-              })
-            : false
-          return isDueInRange || isTickleInRange
-        })()
-        const matchesSearch = JSON.stringify(task)
-          .toLowerCase()
-          .includes(tmpFilters.search.toLowerCase())
-        return matchesStatus && matchesPriority && matchesDate && matchesSearch && matchesType
-      })
-
-      if (tmpFilters.type.includes('template')) {
-        filteredTasks.push(...this.allTemplates)
-      }
-
-      filteredTasks.sort((a, b) => {
-        const dueA = a.timestamps.due ? new Date(a.timestamps.due) : null
-        const dueB = b.timestamps.due ? new Date(b.timestamps.due) : null
-
-        if (dueA === null && dueB !== null) return -1
-        if (dueA !== null && dueB === null) return 1
-        if (dueA !== null && dueB !== null) {
-          if (dueA < dueB) return -1
-          if (dueA > dueB) return 1
-        }
-
-        const priorityOrder = { high: 1, medium: 2, low: 3 }
-        const priorityA = priorityOrder[a.priority] || 4
-        const priorityB = priorityOrder[b.priority] || 4
-
-        return priorityA - priorityB
-      })
-
+      console.log(`testFilters(${JSON.stringify(tmpFilters)}) called from:`, new Error().stack)
+      const filteredTasks = this.getFilteredList(tmpFilters)
       return filteredTasks.length
     },
-    async addTask(type) {
-      if (type === 'task' || type === 'project') {
-        const now = new Date()
-        const todayAtFivePM = new Date(
-          now.getFullYear(),
-          now.getMonth(),
-          now.getDate(),
-          17, // 5:00 PM
-          0,
-          0,
-          0,
-        ).toISOString()
-        const task = {
-          name: `New ${type.charAt(0).toUpperCase() + type.slice(1)}`,
-          type: type,
-          status: 'not_started',
-          priority: 'low',
-          parent: this.filters.parent || null,
-          timestamps: {
-            due: todayAtFivePM,
-            tickle: todayAtFivePM,
-          },
+    taskDefaults(type = 'task') {
+      // Returns default task object based on the type
+      console.log(`taskDefaults(${type}) called from:`, new Error().stack)
+      const taskTemplate = {
+        name: `New ${type.charAt(0).toUpperCase() + type.slice(1)}`,
+        type: type,
+        status: 'not_started',
+        priority: 'low',
+        parent: this.filters.parent || null,
+        timestamps: {
+          due: dateHelper.Week.BusinessClosing(),
+          tickle: dateHelper.Tomorrow.BusinessOpening(),
+        },
+      }
+      if (type === 'template') {
+        taskTemplate.criteria = {
+          days: [1, 2, 3, 4, 5],
+          period: 'daily',
+          time: '17:00',
         }
-        console.log(`addTask called with ${type}: ${JSON.stringify(task)}`)
+        taskTemplate.task_type = 'task'
+        taskTemplate.timestamps = {}
+      }
+      return taskTemplate
+    },
+    async addTask(type) {
+      console.log(`addTask(${type}) called from:`, new Error().stack)
+      const task = this.taskDefaults(type)
+      if (type === 'task' || type === 'project') {
         const taskId = await createTask(task)
         task.task_id = taskId
         this.allTasks.push(task)
-        this.applyFilters()
-        this.setCurrentTask(task)
       } else if (type === 'template') {
-        const template = {
-          name: 'New Template',
-          criteria: {
-            days: [1, 2, 3, 4, 5],
-            period: 'daily',
-            time: '17:00',
-          },
-
-          status: 'not_started',
-          type: 'template',
-        }
-        console.log(`addTemplate called with ${type}: ${JSON.stringify(template)}`)
-        const templateId = await createTemplate(template)
-        template.template_id = templateId
-        this.allTemplates.push(template)
-        this.applyFilters()
-        this.setCurrentTask(template)
+        const templateId = await createTemplate(task)
+        task.template_id = templateId
+        this.allTemplates.push(task)
       } else {
         console.warn('Invalid type provided:', type)
         return
       }
+      this.setCurrentTask(task)
+      this.applyFilters()
+    },
+    async createTaskFromTemplate(template) {
+      // Creates a new task from the provided template
+      console.log(
+        `createTaskFromTemplate(${JSON.stringify(template)}) called from:`,
+        new Error().stack,
+      )
+      const newTask = {}
+      Object.keys(template).forEach((key) => {
+        if (key !== 'type' && key !== 'criteria' && key !== 'timestamps') {
+          newTask[key] = template[key]
+        }
+      })
+      console.log(
+        `createTaskFromTemplate(): New Task after template processing: ${JSON.stringify(newTask)}`,
+        new Error().stack,
+      )
+      newTask.type = template.task_type || 'task'
+      newTask.status = 'not_started'
+      newTask.priority = template.priority || 'low'
+      newTask.timestamps = {
+        due: dateHelper.Today.BusinessClosing(),
+        tickle: dateHelper.Today.BusinessOpening(),
+      }
+      console.log(
+        `createTaskFromTemplate(): New Task after type, status, priority, timestamps: ${JSON.stringify(newTask)}`,
+        new Error().stack,
+      )
+      const taskId = await createTask(newTask)
+      newTask.task_id = taskId
+
+      this.allTasks.push(newTask)
+      // this.applyFilters()
+      console.log('createTaskFromTemplate: New task created from template:', newTask)
     },
     async updateTask(taskId, updates) {
+      console.log(
+        `updateTask(${taskId}, ${JSON.stringify(updates)}) called from:`,
+        new Error().stack,
+      )
       let success = false
       if (updates.task_id) {
         success = await updateTask(taskId, updates)
@@ -395,11 +350,10 @@ export const useTodoStore = defineStore('todo', {
       }
     },
     async deleteTask(taskId) {
+      console.log(`deleteTask(${taskId}) called from:`, new Error().stack)
       const task = this.taskById(taskId)
       if (task.type === 'template') {
-        console.log('Deleting template:', taskId)
         const success = await deleteTemplate(taskId)
-        console.log('deleteTemplate called with taskId:', taskId, 'success:', success)
         if (success) {
           this.allTemplates = this.allTemplates.filter((t) => t.template_id !== taskId)
           this.applyFilters()
@@ -407,21 +361,61 @@ export const useTodoStore = defineStore('todo', {
         return
       }
       const success = await deleteTask(taskId)
-      console.log('deleteTask called with taskId:', taskId, 'success:', success)
       if (success) {
-        console.log(this.allTasks.length, ' tasks before deletion')
         this.allTasks = this.allTasks.filter((t) => t.task_id !== taskId)
-        console.log(this.allTasks.length, ' tasks after deletion')
         this.applyFilters()
       }
     },
-  },
-  async checkTemplates() {
-    console.log('checkTemplates called from:', new Error().stack)
-    for (const template of this.allTemplates) {
-      console.log('Checking template:', template.template_id)
-      console.log('Template criteria:', template.criteria)
-    }
-    console.log('Templates checked and updated if necessary.')
+    checkTemplateCriteria(template) {
+      console.log(
+        `checkTemplateCriteria(${JSON.stringify(template)}) called from:`,
+        new Error().stack,
+      )
+      const now = new Date()
+      const currentDayOfWeek = now.getDay() // 0 (Sunday) to 6 (Saturday)
+      const currentDayOfMonth = now.getDate() // 1 to 31
+
+      let matches = false
+      if (template.criteria.period === 'daily' || template.criteria.period === 'weekly') {
+        matches = template.criteria.days.includes(currentDayOfWeek)
+      } else if (template.criteria.period === 'monthly') {
+        matches = template.criteria.days.includes(currentDayOfMonth)
+      }
+      return matches
+    },
+    async checkTemplates() {
+      // Checks all templates against today's date and creates tasks if criteria match
+      console.log('checkTemplates() called from:', new Error().stack)
+      for (const template of this.allTemplates) {
+        console.log(`checkTemplates: Checking template ${template.template_id}...`)
+        console.log(`checkTemplates: Template criteria: ${JSON.stringify(template.criteria)}`)
+        if (this.checkTemplateCriteria(template)) {
+          console.log(`checkTemplates: Template ${template.template_id} matches today.`)
+          const templateFilteredTasks = this.getFilteredList({
+            template: template.template_id,
+            startDate: dateHelper.Today.Start(),
+            endDate: dateHelper.Today.End(),
+          })
+
+          console.log(
+            `checkTemplates: Filtered tasks for template ${template.template_id}:`,
+            templateFilteredTasks,
+            templateFilteredTasks.length,
+          )
+          if (templateFilteredTasks.length < 1) {
+            // If there are filtered tasks, create a new task from the template
+            // const newTask = this.createTaskFromTemplate(template)
+            const newTask = {
+              message: 'This is a placeholder for the new task created from the template.',
+            }
+            console.log(
+              `checkTemplates: Created new task from template ${template.template_id}:`,
+              newTask,
+            )
+          }
+        }
+      }
+      console.log('Templates checked and updated if necessary.')
+    },
   },
 })
