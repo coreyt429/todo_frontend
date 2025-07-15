@@ -87,15 +87,17 @@ watch(
 watch(
   () => props.title,
   (newTitle) => {
+    console.log('Updating title from props:', newTitle, todoStore.title)
     todoStore.title = newTitle || 'Todo List'
   },
   { immediate: true },
 )
-
 watch(
-  () => todoStore.currentTaskId,
+  () => todoStore.currentTaskId?.value,
   (taskId) => {
-    console.log(JSON.stringify(todoStore.taskById(taskId), null, 2))
+    if (taskId) {
+      console.log(JSON.stringify(todoStore.taskById(taskId), null, 2))
+    }
   },
 )
 </script>
