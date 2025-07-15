@@ -7,3 +7,48 @@ taskView:
 review:
   - need a guided review process for tasks
   - see old code for inspiration
+filters:
+  - add filter controls in the title bar
+  - allow filtering by:
+      - status
+      - type
+      - priority
+      - date
+notifications:
+  - we have a few alerts on errors, should we implement an event bus instead?
+  - should we use a notification system like toast?
+  - should we use a modal dialog for errors?
+  - should we use a snackbar for errors?
+backup/restore:
+  - need to implement a backup and restore system
+  - should we use a file system or a database?
+  - should we use a cloud service or a local service?
+  - should we use a third-party service or build our own?
+  - should we use a cron job or a manual trigger?
+  - should we use a web interface or a command line interface?
+  - should we use a web service or a desktop application?
+  - should we use a mobile application or a desktop application?
+  - should we use a web service or a mobile application?
+  - should we use a web service or a desktop application?
+  - should we use a web service or a command line interface?
+  - should we use a web service or a cloud service?
+  - should we use a web service or a local service?
+  - should we use a web service or a third-party service?
+  - should we use a web service or a backup service?
+  - should we use a web service or a restore service?
+  - should we use a web service or a backup and restore service?
+  - should we use a web service or a backup and restore system?
+  - should we use a web service or a backup and restore process?
+  - should we use a web service or a backup and restore tool?
+  - should we use a web service or a backup and restore application?
+google/apple logins:
+  - need to implement google and apple logins
+  - should we use a third-party service or build our own?
+  - should we use a web service or a mobile application?
+  - should we use a web service or a desktop application?
+  - should we use a web service or a command line interface?
+  - should we use a web service or a cloud service?
+  - should we use a web service or a local service?
+  - should we use a web service or a third-party service?
+  - should we use a web service or a login service?
+  - should we use a web service or an authentication service?
