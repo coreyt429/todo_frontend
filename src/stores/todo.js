@@ -120,6 +120,9 @@ export const useTodoStore = defineStore('todo', {
       console.log('loadTasks called from:', new Error().stack)
       this.allTasks = await listTasks()
       this.allTemplates = await listTemplates()
+      setTimeout(() => {
+        this.checkTemplates()
+      }, 100)
       console.log('Loaded tasks:', this.allTasks.length, 'and templates:', this.allTemplates.length)
       this.applyFilters()
     },
@@ -190,14 +193,23 @@ export const useTodoStore = defineStore('todo', {
           if (!dueDate && !tickleDate) {
             return true
           }
+          // Ensure startDate and endDate are Date objects (or get them from functions)
+          let startDate =
+            typeof this.filters.startDate === 'function'
+              ? this.filters.startDate()
+              : this.filters.startDate
+          let endDate =
+            typeof this.filters.endDate === 'function'
+              ? this.filters.endDate()
+              : this.filters.endDate
           // Check if either dueDate or tickleDate is within the date range
           const isDueInRange = dueDate
-            ? date.isBetweenDates(dueDate, this.filters.startDate, this.filters.endDate, {
+            ? date.isBetweenDates(dueDate, startDate, endDate, {
                 format: 'YYYY-MM-DDTHH:mm:ss.SSSSSSZ',
               })
             : false
           const isTickleInRange = tickleDate
-            ? date.isBetweenDates(tickleDate, this.filters.startDate, this.filters.endDate, {
+            ? date.isBetweenDates(tickleDate, startDate, endDate, {
                 format: 'YYYY-MM-DDTHH:mm:ss.SSSSSSZ',
               })
             : false
@@ -255,14 +267,21 @@ export const useTodoStore = defineStore('todo', {
           if (!dueDate && !tickleDate) {
             return true
           }
+          // Ensure startDate and endDate are Date objects (or get them from functions)
+          let startDate =
+            typeof tmpFilters.startDate === 'function'
+              ? tmpFilters.startDate()
+              : tmpFilters.startDate
+          let endDate =
+            typeof tmpFilters.endDate === 'function' ? tmpFilters.endDate() : tmpFilters.endDate
           // Check if either dueDate or tickleDate is within the date range
           const isDueInRange = dueDate
-            ? date.isBetweenDates(dueDate, tmpFilters.startDate, tmpFilters.endDate, {
+            ? date.isBetweenDates(dueDate, startDate, endDate, {
                 format: 'YYYY-MM-DDTHH:mm:ss.SSSSSSZ',
               })
             : false
           const isTickleInRange = tickleDate
-            ? date.isBetweenDates(tickleDate, tmpFilters.startDate, tmpFilters.endDate, {
+            ? date.isBetweenDates(tickleDate, startDate, endDate, {
                 format: 'YYYY-MM-DDTHH:mm:ss.SSSSSSZ',
               })
             : false
@@ -396,5 +415,13 @@ export const useTodoStore = defineStore('todo', {
         this.applyFilters()
       }
     },
+  },
+  async checkTemplates() {
+    console.log('checkTemplates called from:', new Error().stack)
+    for (const template of this.allTemplates) {
+      console.log('Checking template:', template.template_id)
+      console.log('Template criteria:', template.criteria)
+    }
+    console.log('Templates checked and updated if necessary.')
   },
 })

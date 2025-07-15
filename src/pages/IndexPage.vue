@@ -22,12 +22,12 @@ const todoStore = useTodoStore()
 // const { proxy } = getCurrentInstance()
 const props = defineProps({
   startDate: {
-    type: Date,
+    type: [Date, Function],
     required: false,
     default: null,
   },
   endDate: {
-    type: Date,
+    type: [Date, Function],
     required: false,
     default: null,
   },
@@ -47,8 +47,6 @@ const props = defineProps({
     default: () => ['task', 'project'],
   },
 })
-
-console.log('startDate:', props.startDate, 'endDate:', props.endDate)
 
 onMounted(() => {
   if (props.startDate && props.endDate) {

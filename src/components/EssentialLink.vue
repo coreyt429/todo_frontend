@@ -54,11 +54,11 @@ const props = defineProps({
     default: '_self',
   },
   startDate: {
-    type: Date,
+    type: [Date, Function],
     default: null,
   },
   endDate: {
-    type: Date,
+    type: [Date, Function],
     default: null,
   },
   type: {
