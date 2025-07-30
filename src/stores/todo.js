@@ -1,4 +1,5 @@
 import { defineStore } from 'pinia'
+import { ref, watch } from 'vue'
 import { dateHelper } from 'src/plugins/dateUtils.js'
 import {
   createTask,
@@ -15,6 +16,7 @@ import { date } from 'quasar'
 const filterDefaults = {
   // Default filters for tasks
   status: ['not_started', 'in_progress', 'blocked', 'Not set'],
+  statusList: ['not_started', 'in_progress', 'blocked', 'completed', 'skipped', 'Not set'],
   priority: ['low', 'medium', 'high', 'Not set'],
   startDate: dateHelper.All.Start,
   endDate: dateHelper.All.End,
@@ -28,6 +30,11 @@ export const useTodoStore = defineStore('todo', {
     title: 'Todo List', // Default title for the todo list
     currentTaskId: null, // Holds the ID of the currently selected task or template
     filteredTasks: [], // Current filtered task list
+    showCompleted: ref(
+      localStorage.getItem('showCompleted') !== null
+        ? JSON.parse(localStorage.getItem('showCompleted'))
+        : false,
+    ), // Flag to show completed tasks
     allTasks: [
       {
         name: 'Tasks Loading',
@@ -216,9 +223,11 @@ export const useTodoStore = defineStore('todo', {
       console.log(`getFilteredList(${JSON.stringify(filterDefs)}) called from:`, new Error().stack)
       // Merge default filters with provided filter definitions
       Object.keys(this.filters).forEach((key) => {
+        console.log(`getFilteredList: Checking filter key: ${key}`)
         if (!(key in filterDefs)) {
           filterDefs[key] = this.filters[key]
         }
+        console.log(`getFilteredList: Filter key ${key} set to:`, filterDefs[key])
       })
       // Short circuit if list is looking for children of a specific parent
       if (filterDefs.parent) {
@@ -395,6 +404,7 @@ export const useTodoStore = defineStore('todo', {
             template: template.template_id,
             startDate: dateHelper.Today.Start(),
             endDate: dateHelper.Today.End(),
+            status: filterDefaults.statusList,
           })
 
           console.log(
@@ -404,10 +414,10 @@ export const useTodoStore = defineStore('todo', {
           )
           if (templateFilteredTasks.length < 1) {
             // If there are filtered tasks, create a new task from the template
-            // const newTask = this.createTaskFromTemplate(template)
-            const newTask = {
-              message: 'This is a placeholder for the new task created from the template.',
-            }
+            const newTask = this.createTaskFromTemplate(template)
+            // const newTask = {
+            //   message: 'This is a placeholder for the new task created from the template.',
+            // }
             console.log(
               `checkTemplates: Created new task from template ${template.template_id}:`,
               newTask,
@@ -419,3 +429,24 @@ export const useTodoStore = defineStore('todo', {
     },
   },
 })
+
+watch(
+  () => useTodoStore().showCompleted.valueOf(),
+  (newVal) => {
+    console.log('showCompleted changed:', newVal)
+    localStorage.setItem('showCompleted', JSON.stringify(newVal))
+    if (newVal) {
+      const store = useTodoStore()
+      const statusList = Array.isArray(store.filters.status) ? [...store.filters.status] : []
+      if (!statusList.includes('completed')) statusList.push('completed')
+      if (!statusList.includes('skipped')) statusList.push('skipped')
+      store.setFilters({ status: statusList })
+    } else {
+      const store = useTodoStore()
+      const statusList = Array.isArray(store.filters.status) ? [...store.filters.status] : []
+      store.setFilters({
+        status: statusList.filter((status) => !['completed', 'skipped'].includes(status)),
+      })
+    }
+  },
+)

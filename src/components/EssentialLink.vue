@@ -3,75 +3,45 @@
     <q-item-section v-if="props.icon" avatar>
       <q-btn dense round flat :icon="props.icon">
         <q-badge color="primary" floating transparent>
-          {{ todoStore.testFilters(filters) }}
+          {{ badgeCount }}
         </q-badge>
       </q-btn>
-
-      <!-- <div class="row items-center no-wrap">
-        <q-icon :name="props.icon" />
-        <q-badge rounded color="primary" class="q-ml-sm" :label="todoStore.testFilters(filters)">
-        </q-badge>
-      </div> -->
     </q-item-section>
 
     <q-item-section>
-      <q-item-label>
-        {{ props.title }}
-      </q-item-label>
-
-      <q-item-label caption>
-        {{ props.caption }}
-      </q-item-label>
+      <q-item-label>{{ props.title }}</q-item-label>
+      <q-item-label caption>{{ props.caption }}</q-item-label>
     </q-item-section>
   </q-item>
 </template>
 
 <script setup>
+import { computed } from 'vue'
 import { useTodoStore } from 'stores/todo'
+
 const todoStore = useTodoStore()
+
 const props = defineProps({
-  title: {
-    type: String,
-    required: true,
-  },
-
-  caption: {
-    type: String,
-    default: '',
-  },
-
-  link: {
-    type: String,
-    default: '#',
-  },
-
-  icon: {
-    type: String,
-    default: '',
-  },
-  target: {
-    type: String,
-    default: '_self',
-  },
-  startDate: {
-    type: [Date, Function],
-    default: null,
-  },
-  endDate: {
-    type: [Date, Function],
-    default: null,
-  },
-  type: {
-    type: Array,
-    default: () => ['project', 'task'],
-  },
+  title: { type: String, required: true },
+  caption: { type: String, default: '' },
+  link: { type: String, default: '#' },
+  icon: { type: String, default: '' },
+  target: { type: String, default: '_self' },
+  startDate: { type: [Date, Function], default: null },
+  endDate: { type: [Date, Function], default: null },
+  type: { type: Array, default: () => ['project', 'task'] },
 })
 
-const filters = {
-  startDate: props.startDate,
-  endDate: props.endDate,
-  type: props.type,
-}
+// Reactive computed filters that depend on props and store filters
+const filters = computed(() => ({
+  startDate: props.startDate || todoStore.filters.startDate,
+  endDate: props.endDate || todoStore.filters.endDate,
+  type: props.type || todoStore.filters.type,
+  status: todoStore.filters.status,
+  priority: todoStore.filters.priority,
+  search: todoStore.filters.search,
+}))
 
-console.log('EssentialLink props:', props)
+// Computed badgeCount explicitly depends on store tasks and filters
+const badgeCount = computed(() => todoStore.testFilters(filters.value))
 </script>

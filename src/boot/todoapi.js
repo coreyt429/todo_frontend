@@ -118,6 +118,12 @@ async function listTemplates() {
   return data
 }
 
+async function backupData() {
+  const { data } = await api.get('/backup')
+  console.log('Fetched backup:', data)
+  return data
+}
+
 export default ({ app }) => {
   console.log('Initializing todoapi plugin')
   app.config.globalProperties.$apiKey = import.meta.env.VITE_TODO_API_KEY
@@ -140,6 +146,7 @@ export {
   updateTemplate,
   deleteTemplate,
   listTemplates,
+  backupData,
 }
 
 // The following functions can be used to interact with the Todo API
