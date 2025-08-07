@@ -2,10 +2,15 @@
 // --- Axios client ---
 import axios from 'axios'
 
+const isLocalhost = location.hostname === 'localhost' || location.hostname === '127.0.0.1'
+const baseURL = isLocalhost
+  ? import.meta.env.VITE_TODO_API_URL
+  : `${location.protocol}//${location.host}`
+
 const api = axios.create({
-  baseURL: import.meta.env.VITE_TODO_API_URL,
+  baseURL,
   headers: {
-    Authorization: `Bearer ${import.meta.env.VITE_TODO_API_KEY}`,
+    Authorization: `Bearer ${localStorage.getItem('auth_token') || ''}`,
     'Content-Type': 'application/json',
   },
 })
@@ -126,8 +131,8 @@ async function backupData() {
 
 export default ({ app }) => {
   console.log('Initializing todoapi plugin')
-  app.config.globalProperties.$apiKey = import.meta.env.VITE_TODO_API_KEY
-  app.config.globalProperties.$apiUrl = import.meta.env.VITE_TODO_API_URL
+  app.config.globalProperties.$apiKey = localStorage.getItem('auth_token') || ''
+  app.config.globalProperties.$apiUrl = baseURL
 
   // Expose helpers globally so Pinia stores or components can use them via this.$todoApi
   app.config.globalProperties.$todoApi = {
