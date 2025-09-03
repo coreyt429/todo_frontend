@@ -1,66 +1,126 @@
+<template>
+  <q-page>
+    <div class="q-pa-sm row items-center q-gutter-sm">
+      <q-btn color="primary" label="Add child" :disable="!selectedId" @click="addChild" />
+      <div v-if="selectedId" class="text-caption">Selected: {{ selectedId }}</div>
+    </div>
+
+    <div style="height: 600px">
+      <VueFlow
+        v-model:nodes="localNodes"
+        v-model:edges="localEdges"
+        :fit-view-on-init="false"
+        @node-click="onNodeClick"
+      >
+        <Background />
+        <Controls />
+        <MiniMap />
+      </VueFlow>
+    </div>
+  </q-page>
+</template>
+
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, watch, nextTick, onMounted } from 'vue'
 import { VueFlow, useVueFlow } from '@vue-flow/core'
-import { Controls } from '@vue-flow/controls'
 import { MiniMap } from '@vue-flow/minimap'
+import { Controls } from '@vue-flow/controls'
 import { Background } from '@vue-flow/background'
 import dagre from '@dagrejs/dagre'
 
-const nodes = ref([
-  { id: 'project', label: 'Project', position: { x: 0, y: 0 }, data: {} },
-  { id: 'p1', label: 'Project 1', position: { x: 0, y: 0 } },
-  { id: 'p2', label: 'Project 2', position: { x: 0, y: 0 } },
-  { id: 't1', label: 'Task 1', position: { x: 0, y: 0 } },
-  { id: 't2', label: 'Task 2', position: { x: 0, y: 0 } },
-  { id: 't3', label: 'Task 3', position: { x: 0, y: 0 } },
-  { id: 't4', label: 'Task 4', position: { x: 0, y: 0 } },
-  { id: 't5', label: 'Task 5', position: { x: 0, y: 0 } },
-  { id: 't6', label: 'Task 6', position: { x: 0, y: 0 } },
-])
+/**
+ * Props:
+ * - nodes, edges: arrays from the parent/page (e.g., built from Pinia via a composable).
+ * - layoutDir: 'LR' | 'RL' | 'TB' | 'BT'
+ * - autoFit: whether to fitView after layout
+ * - nodeSize: { width, height } used by Dagre to compute positions
+ */
+const props = defineProps({
+  nodes: { type: Array, required: true, default: () => [] },
+  edges: { type: Array, required: true, default: () => [] },
+  layoutDir: { type: String, default: 'LR' },
+  autoFit: { type: Boolean, default: true },
+  nodeSize: {
+    type: Object,
+    default: () => ({ width: 180, height: 40 }),
+  },
+})
 
-const edges = ref([
-  { id: 'e_p_p1', source: 'project', target: 'p1' },
-  { id: 'e_p_p2', source: 'project', target: 'p2' },
-  { id: 'e_p1_t1', source: 'p1', target: 't1' },
-  { id: 'e_p1_t2', source: 'p1', target: 't2' },
-  { id: 'e_p1_t3', source: 'p1', target: 't3' },
-  { id: 'e_p2_t4', source: 'p2', target: 't4' },
-  { id: 'e_p2_t5', source: 'p2', target: 't5' },
-  { id: 'e_p2_t6', source: 'p2', target: 't6' },
-])
+/**
+ * Emits:
+ * - add-child: { parentId, label }  (parent updates store, which flows back as new props)
+ * - node-click: nodeId
+ * - update:selectedId: nodeId
+ */
+const emit = defineEmits(['add-child', 'node-click', 'update:selectedId'])
+
+/* Local state fed to <VueFlow> */
+const localNodes = ref([])
+const localEdges = ref([])
+const selectedId = ref('')
 
 const { fitView } = useVueFlow()
 
-// Simple left-to-right auto-layout with Dagre
-function layoutLR() {
+function layoutWithDagre(rawNodes, rawEdges, direction = 'TB') {
+  const { width, height } = props.nodeSize
   const g = new dagre.graphlib.Graph()
-  g.setGraph({ rankdir: 'LR', nodesep: 40, ranksep: 70 })
   g.setDefaultEdgeLabel(() => ({}))
+  g.setGraph({ rankdir: direction, nodesep: 40, ranksep: 60, marginx: 20, marginy: 20 })
 
-  nodes.value.forEach((n) => g.setNode(n.id, { width: 150, height: 40 }))
-  edges.value.forEach((e) => g.setEdge(e.source, e.target))
+  rawNodes.forEach((n) => g.setNode(n.id, { width, height }))
+  rawEdges.forEach((e) => g.setEdge(e.source, e.target))
 
   dagre.layout(g)
 
-  nodes.value = nodes.value.map((n) => {
-    const { x, y } = g.node(n.id)
-    return { ...n, position: { x, y }, draggable: false } // positions now managed by layout
+  const isHorizontal = direction === 'LR' || direction === 'RL'
+  const nodes = rawNodes.map((n) => {
+    const { x, y } = g.node(n.id) || { x: 0, y: 0 }
+    return {
+      ...n,
+      position: { x: x - width / 2, y: y - height / 2 },
+      targetPosition: isHorizontal ? 'left' : 'top',
+      sourcePosition: isHorizontal ? 'right' : 'bottom',
+      draggable: false,
+    }
   })
+
+  return { nodes, edges: rawEdges }
 }
 
+async function relayoutAndApply(rawNodes, rawEdges, direction) {
+  const { nodes, edges } = layoutWithDagre(rawNodes, rawEdges, direction)
+  localNodes.value = nodes
+  localEdges.value = edges
+  if (props.autoFit) {
+    await nextTick()
+    fitView({ padding: 0.2 })
+  }
+}
+
+function onNodeClick(evt) {
+  const node = evt?.node
+  selectedId.value = node?.id || ''
+  emit('node-click', selectedId.value)
+  emit('update:selectedId', selectedId.value)
+}
+
+function addChild() {
+  if (!selectedId.value) return
+  const parentId = selectedId.value
+  const label =
+    (typeof window !== 'undefined' && window.prompt('New node label:', 'New Task')) || 'New Task'
+  emit('add-child', { parentId, label })
+  // Parent updates its data/store; when props change, our watcher re-layouts.
+}
+
+/* Re-run layout whenever parent updates nodes/edges or layoutDir changes */
+watch(
+  () => [props.nodes, props.edges, props.layoutDir, props.nodeSize.width, props.nodeSize.height],
+  () => relayoutAndApply(props.nodes, props.edges, props.layoutDir),
+  { immediate: true, deep: true },
+)
+
 onMounted(() => {
-  layoutLR()
-  // slight delay helps ensure DOM is ready before fitView
-  requestAnimationFrame(() => fitView({ padding: 0.2 }))
+  // initial fit is handled by the watcher with immediate:true
 })
 </script>
-
-<template>
-  <div class="q-pa-md" style="height: calc(100vh - 120px)">
-    <VueFlow v-model:nodes="nodes" v-model:edges="edges" fit-view-on-init>
-      <Controls />
-      <MiniMap />
-      <Background pattern-color="var(--q-primary)" gap="20" />
-    </VueFlow>
-  </div>
-</template>
