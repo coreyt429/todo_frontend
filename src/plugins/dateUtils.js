@@ -84,3 +84,40 @@ const dateHelper = {
 
 export { dateHelper }
 export default dateHelper
+
+function parseDueTimestamp(t) {
+  const candidates = [
+    t?.due_ts,
+    t?.dueTs,
+    t?.due_at,
+    t?.dueAt,
+    t?.due_date,
+    t?.dueDate,
+    t?.due,
+    t?.deadline,
+  ]
+  for (const v of candidates) {
+    if (v == null) continue
+    if (typeof v === 'number' && !Number.isNaN(v)) {
+      const ms = v > 1e12 ? v : v * 1000 // seconds vs ms
+      return Number.isFinite(ms) ? ms : null
+    }
+    if (typeof v === 'string') {
+      const ms = Date.parse(v)
+      if (!Number.isNaN(ms)) return ms
+    }
+    if (v instanceof Date) return v.getTime()
+  }
+  return null
+}
+
+export function getDueBucket(t) {
+  const ms = parseDueTimestamp(t)
+  if (!ms) return { bucket: 'none', days: null }
+  const now = Date.now()
+  const diffDays = Math.floor((ms - now) / 86400000)
+  if (diffDays < 0) return { bucket: 'overdue', days: diffDays }
+  if (diffDays === 0) return { bucket: 'today', days: 0 }
+  if (diffDays <= 3) return { bucket: 'soon', days: diffDays }
+  return { bucket: 'later', days: diffDays }
+}
