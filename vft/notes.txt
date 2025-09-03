@@ -1,0 +1,4 @@
+npm install @vue-flow/core
+npm install @vue-flow/minimap @vue-flow/controls @vue-flow/background
+npm install @vue-flow/core @vue-flow/minimap @vue-flow/controls @vue-flow/background
+npm install @dagrejs/dagre
