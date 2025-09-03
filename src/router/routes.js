@@ -34,6 +34,17 @@ routeDefs.forEach((route) => {
 })
 
 routes.push({
+  path: '/flow-demo',
+  component: () => import('layouts/MainLayout.vue'),
+  children: [
+    {
+      path: '',
+      component: () => import('pages/FlowDemoPage.vue'),
+    },
+  ],
+})
+
+routes.push({
   path: '/login',
   component: () => import('layouts/LoginLayout.vue'),
   children: [
