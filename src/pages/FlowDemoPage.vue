@@ -2,7 +2,7 @@
 import FlowDemo from 'src/components/FlowDemo.vue'
 import { useTodoStore } from 'stores/todo'
 import { computed } from 'vue'
-import { getDueBucket } from 'src/utils/dateUtils'
+import { getDueBucket } from 'src/plugins/dateUtils.js'
 
 // --- Visual helpers for edges and labels ----------------------------------
 function edgeVisualForTask(t) {
