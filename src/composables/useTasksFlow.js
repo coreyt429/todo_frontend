@@ -29,6 +29,58 @@ export function useTasksFlow(todoStore, opts = {}) {
     return m
   })
 
+  // --- Visual helpers for edges and labels ----------------------------------
+  function edgeVisualForTask(t) {
+    const pri = (t?.priority || '').toLowerCase()
+    const { bucket } = getDueBucket(t)
+
+    // Color priority first, then urgency if overdue/today
+    let stroke = '#90a4ae'
+    let strokeWidth = 1.5
+
+    if (pri === 'high') {
+      stroke = '#e53935'
+      strokeWidth = 2.5
+    } else if (pri === 'medium') {
+      stroke = '#fb8c00'
+      strokeWidth = 2
+    } else if (pri === 'low') {
+      stroke = '#43a047'
+      strokeWidth = 2
+    }
+
+    if (bucket === 'overdue') {
+      stroke = '#e53935'
+      strokeWidth = Math.max(strokeWidth, 3)
+    } else if (bucket === 'today') {
+      stroke = '#fbc02d'
+      strokeWidth = Math.max(strokeWidth, 2.5)
+    } else if (bucket === 'soon') {
+      stroke = '#ffa000'
+      strokeWidth = Math.max(strokeWidth, 2)
+    }
+
+    const style = { stroke, strokeWidth }
+    const animated = bucket === 'overdue'
+    return { style, animated }
+  }
+
+  function formatNodeLabel(t) {
+    const name = t?.name ?? '(unnamed)'
+    const pri = (t?.priority || '').toLowerCase()
+    const { bucket, days } = getDueBucket(t)
+
+    const priTxt = pri ? pri.charAt(0).toUpperCase() + pri.slice(1) : null
+    let dueTxt = null
+    if (bucket === 'overdue')
+      dueTxt = `D${days}` // negative days
+    else if (bucket === 'today') dueTxt = 'D0'
+    else if (bucket === 'soon' || bucket === 'later') dueTxt = `D+${days}`
+
+    const bits = [priTxt, dueTxt].filter(Boolean)
+    return bits.length ? `${name}  •  ${bits.join(' • ')}` : name
+  }
+
   // Virtual root nodes
   const virtualRootNodes = computed(() => [
     {
@@ -70,7 +122,7 @@ export function useTasksFlow(todoStore, opts = {}) {
     const real = tasks.value.map((t) => ({
       id: t.task_id,
       data: {
-        label: t.name ?? '(unnamed)',
+        label: formatNodeLabel(t),
         task: t,
       },
       position: { x: 0, y: 0 }, // dagre will place
@@ -92,11 +144,16 @@ export function useTasksFlow(todoStore, opts = {}) {
       const pid = t.parent
 
       if (pid && ids.has(pid) && ids.has(id)) {
-        edges.push({
-          id: `e-${pid}-${id}`,
-          source: pid,
-          target: id,
-        })
+        {
+          const child = ids.get(id)
+          const vis = edgeVisualForTask(child)
+          edges.push({
+            id: `e-${pid}-${id}`,
+            source: pid,
+            target: id,
+            ...vis,
+          })
+        }
         continue
       }
 
@@ -104,11 +161,16 @@ export function useTasksFlow(todoStore, opts = {}) {
       if (!pid) {
         const ttype = (t?.type || 'task').toLowerCase()
         const root = ttype === 'project' ? ROOT_PROJECTS_ID : ROOT_TASKS_ID
-        edges.push({
-          id: `e-${root}-${id}`,
-          source: root,
-          target: id,
-        })
+        {
+          const child = ids.get(id) || t
+          const vis = edgeVisualForTask(child)
+          edges.push({
+            id: `e-${root}-${id}`,
+            source: root,
+            target: id,
+            ...vis,
+          })
+        }
         continue
       }
 
@@ -116,11 +178,16 @@ export function useTasksFlow(todoStore, opts = {}) {
       if (pid && !ids.has(pid)) {
         const ttype = (t?.type || 'task').toLowerCase()
         const root = ttype === 'project' ? ROOT_PROJECTS_ID : ROOT_TASKS_ID
-        edges.push({
-          id: `e-${root}-${id}`,
-          source: root,
-          target: id,
-        })
+        {
+          const child = ids.get(id) || t
+          const vis = edgeVisualForTask(child)
+          edges.push({
+            id: `e-${root}-${id}`,
+            source: root,
+            target: id,
+            ...vis,
+          })
+        }
       }
     }
 
@@ -176,29 +243,99 @@ export function useTasksFlow(todoStore, opts = {}) {
     fitView({ padding: 0.2 })
   }
 
-  // Compute style based on task fields
+  // --- Due-date helpers -----------------------------------------------------
+  function parseDueTimestamp(t) {
+    const candidates = [
+      t?.due_ts,
+      t?.dueTs,
+      t?.due_at,
+      t?.dueAt,
+      t?.due_date,
+      t?.dueDate,
+      t?.due,
+      t?.deadline,
+    ]
+    for (const v of candidates) {
+      if (v == null) continue
+      if (typeof v === 'number' && !Number.isNaN(v)) {
+        // Heuristic: seconds vs ms
+        const ms = v > 1e12 ? v : v * 1000
+        return Number.isFinite(ms) ? ms : null
+      }
+      if (typeof v === 'string') {
+        const ms = Date.parse(v)
+        if (!Number.isNaN(ms)) return ms
+      }
+      if (v instanceof Date) return v.getTime()
+    }
+    return null
+  }
+
+  function getDueBucket(t) {
+    const ms = parseDueTimestamp(t)
+    if (!ms) return { bucket: 'none', days: null }
+    const now = Date.now()
+    const diffDays = Math.floor((ms - now) / 86400000) // 86_400_000 ms/day
+    if (diffDays < 0) return { bucket: 'overdue', days: diffDays }
+    if (diffDays === 0) return { bucket: 'today', days: 0 }
+    if (diffDays <= 3) return { bucket: 'soon', days: diffDays }
+    return { bucket: 'later', days: diffDays }
+  }
+
+  // Compute style based on task fields (priority + status + due timestamp)
   function nodeStyle(t) {
     const pri = (t?.priority || '').toLowerCase()
     const stat = (t?.status || '').toLowerCase()
 
-    let border = '#ccc'
-    if (pri === 'high') border = '#e53935'
-    else if (pri === 'medium') border = '#fb8c00'
-    else if (pri === 'low') border = '#43a047'
+    // Priority → outer border color/weight
+    let borderColor = '#90a4ae' // default blue-grey
+    let borderWidth = 1
+    if (pri === 'high') {
+      borderColor = '#e53935'
+      borderWidth = 2
+    } else if (pri === 'medium') {
+      borderColor = '#fb8c00'
+      borderWidth = 2
+    } else if (pri === 'low') {
+      borderColor = '#43a047'
+      borderWidth = 2
+    }
 
-    let bg = '#fff'
+    // Status → base background
+    let bg = '#ffffff'
     if (stat === 'done' || stat === 'completed') bg = '#e8f5e9'
     else if (stat === 'in_progress') bg = '#e3f2fd'
     else if (stat === 'blocked') bg = '#ffebee'
 
+    // Due bucket → left accent bar + subtle inset to signal urgency
+    const { bucket } = getDueBucket(t)
+    let dueAccent = '#cfd8dc' // none/unknown
+    let inset = ''
+    if (bucket === 'overdue') {
+      dueAccent = '#e53935'
+      inset = 'inset 0 0 0 2px #ffcdd2'
+    } else if (bucket === 'today') {
+      dueAccent = '#fbc02d'
+      inset = 'inset 0 0 0 2px #fff59d'
+    } else if (bucket === 'soon') {
+      dueAccent = '#ffa000'
+      inset = 'inset 0 0 0 2px #ffe082'
+    } else if (bucket === 'later') {
+      dueAccent = '#43a047'
+      inset = 'inset 0 0 0 2px #c8e6c9'
+    }
+
     return {
       width: `${nodeWidth}px`,
       height: `${nodeHeight}px`,
-      border: `1px solid ${border}`,
+      border: `${borderWidth}px solid ${borderColor}`,
       borderRadius: '8px',
-      padding: '8px',
+      padding: '8px 8px 8px 10px',
       background: bg,
       fontSize: '13px',
+      // due accent on the left
+      borderLeft: `6px solid ${dueAccent}`,
+      boxShadow: inset,
     }
   }
 
