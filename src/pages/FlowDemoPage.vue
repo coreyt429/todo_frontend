@@ -60,6 +60,7 @@ function formatNodeLabel(t) {
 const todoStore = useTodoStore()
 const nodes = computed(() => {
   const tasks = todoStore.tasks.filter((t) => t.status !== 'completed' && t.status !== 'skipped')
+  console.log(`FlowDemoPage: (nodes) ${JSON.stringify(tasks, null, 2)}`)
   return tasks.map((t) => ({
     id: t.id,
     label: formatNodeLabel(t),
@@ -69,6 +70,7 @@ const nodes = computed(() => {
 
 const edges = computed(() => {
   const tasks = todoStore.tasks.filter((t) => t.status !== 'completed' && t.status !== 'skipped')
+  console.log(`FlowDemoPage: (edges) ${JSON.stringify(tasks, null, 2)}`)
   const edgesArr = []
   const ids = new Map(tasks.map((t) => [t.id, t]))
 
@@ -115,7 +117,7 @@ const edges = computed(() => {
       }
     }
   }
-  console.log(`Edges: ${JSON.stringify(edgesArr, null, 2)}`)
+  console.log(`FlowDemoPage: ${JSON.stringify(edgesArr, null, 2)}`)
   return edgesArr
 })
 
