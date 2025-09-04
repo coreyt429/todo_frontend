@@ -115,6 +115,7 @@ const edges = computed(() => {
       }
     }
   }
+  console.log(`Edges: ${JSON.stringify(edgesArr, null, 2)}`)
   return edgesArr
 })
 
