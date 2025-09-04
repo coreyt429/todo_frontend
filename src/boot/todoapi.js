@@ -71,6 +71,24 @@ async function listTasks() {
 }
 
 /**
+ * Search tasks by a specific field/value pair.
+ * Encodes both field and value for safe URL usage.
+ * Example: searchTasksByField('status', 'in_progress') → GET /task/search/status/in_progress
+ * @param {string} field - Name of the field to match (e.g., 'status', 'priority').
+ * @param {string|number|boolean} value - Value to match.
+ * @returns {Promise<Array>} Matching tasks array.
+ */
+async function searchTasksByField(field, value) {
+  if (!field || value === undefined) {
+    throw new Error('searchTasksByField requires both field and value')
+  }
+  const safeField = encodeURIComponent(String(field))
+  const safeValue = encodeURIComponent(String(value))
+  const { data } = await api.get(`/task/search/${safeField}/${safeValue}`)
+  return data
+}
+
+/**
  * Create a new template.
  * @param {Object} templateData - The payload for the new template.
  * @returns {Promise<string>} template_id of the newly created template.
@@ -140,6 +158,7 @@ export default ({ app }) => {
     updateTask,
     deleteTask,
     listTasks,
+    searchTasksByField,
   }
 }
 export {
@@ -147,6 +166,7 @@ export {
   updateTask,
   deleteTask,
   listTasks,
+  searchTasksByField,
   createTemplate,
   updateTemplate,
   deleteTemplate,

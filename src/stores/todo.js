@@ -6,6 +6,7 @@ import {
   updateTask,
   deleteTask,
   listTasks,
+  searchTasksByField,
   listTemplates,
   updateTemplate,
   createTemplate,
@@ -57,6 +58,16 @@ export const useTodoStore = defineStore('todo', {
   }),
 
   getters: {
+    /**
+     * Getter returning a function that fetches tasks by arbitrary field/value via API.
+     * Usage: const rows = await store.searchTasksBy('status', 'in_progress')
+     */
+    searchTasksBy: () => async (field, value) => {
+      if (!field || value === undefined) {
+        throw new Error('searchTasksBy requires both field and value')
+      }
+      return await searchTasksByField(field, value)
+    },
     getAncestors: (state) => (task_id) => {
       // Returns an array of ancestor tasks for the given task_id
       // This is useful for displaying the task hierarchy in the UI
@@ -400,24 +411,26 @@ export const useTodoStore = defineStore('todo', {
         console.log(`checkTemplates: Template criteria: ${JSON.stringify(template.criteria)}`)
         if (this.checkTemplateCriteria(template)) {
           console.log(`checkTemplates: Template ${template.template_id} matches today.`)
-          const templateFilteredTasks = this.getFilteredList({
-            template: template.template_id,
-            startDate: dateHelper.Today.Start(),
-            endDate: dateHelper.Today.End(),
-            status: filterDefaults.statusList,
+          // Use API-backed getter instead of local filter logic
+          const templateTasks = await this.searchTasksBy('template_id', template.template_id)
+
+          // Consider a task "existing for today" if its due or tickle is within today
+          const start = dateHelper.Today.Start()
+          const end = dateHelper.Today.End()
+          const templateTasksToday = (templateTasks || []).filter((t) => {
+            const due = t?.timestamps?.due ? new Date(t.timestamps.due) : null
+            const tickle = t?.timestamps?.tickle ? new Date(t.timestamps.tickle) : null
+            const inRange =
+              (due && due >= start && due <= end) || (tickle && tickle >= start && tickle <= end)
+            return inRange
           })
 
           console.log(
-            `checkTemplates: Filtered tasks for template ${template.template_id}:`,
-            templateFilteredTasks,
-            templateFilteredTasks.length,
+            `checkTemplates: API search returned ${templateTasks?.length || 0} tasks; ${templateTasksToday.length} are for today.`,
           )
-          if (templateFilteredTasks.length < 1) {
-            // If there are filtered tasks, create a new task from the template
+
+          if (templateTasksToday.length < 1) {
             const newTask = this.createTaskFromTemplate(template)
-            // const newTask = {
-            //   message: 'This is a placeholder for the new task created from the template.',
-            // }
             console.log(
               `checkTemplates: Created new task from template ${template.template_id}:`,
               newTask,
