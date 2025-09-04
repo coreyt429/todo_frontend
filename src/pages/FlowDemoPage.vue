@@ -59,7 +59,7 @@ function formatNodeLabel(t) {
 // Base nodes from tasks + virtual roots
 const todoStore = useTodoStore()
 const nodes = computed(() => {
-  const tasks = todoStore.tasks
+  const tasks = todoStore.tasks.filter((t) => t.status !== 'completed' && t.status !== 'skipped')
   return tasks.map((t) => ({
     id: t.id,
     label: formatNodeLabel(t),
@@ -68,7 +68,7 @@ const nodes = computed(() => {
 })
 
 const edges = computed(() => {
-  const tasks = todoStore.tasks
+  const tasks = todoStore.tasks.filter((t) => t.status !== 'completed' && t.status !== 'skipped')
   const edgesArr = []
   const ids = new Map(tasks.map((t) => [t.id, t]))
 
