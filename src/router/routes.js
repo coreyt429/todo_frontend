@@ -35,7 +35,7 @@ routeDefs.forEach((route) => {
 
 routes.push({
   path: '/flow-demo',
-  component: () => import('layouts/MainLayout.vue'),
+  component: () => import('layouts/FlowDemoLayout.vue'),
   children: [
     {
       path: '',
