@@ -74,6 +74,37 @@ export const useTodoStore = defineStore('todo', {
         }
       }
     },
+    async propagateDueToAncestors(taskId, dueIso) {
+      if (!dueIso) return
+      const dueDate = new Date(dueIso)
+      if (isNaN(dueDate)) return
+      const ancestorIds = this.getAncestorIds(taskId)
+      for (const ancId of ancestorIds) {
+        const ancestor = this.taskById(ancId)
+        if (!ancestor) continue
+        const ancDue = ancestor?.timestamps?.due || ancestor?.due || null
+        let shouldUpdate = false
+        if (!ancDue) {
+          shouldUpdate = true
+        } else {
+          const ad = new Date(ancDue)
+          if (isNaN(ad) || ad < dueDate) {
+            shouldUpdate = true
+          }
+        }
+        if (shouldUpdate) {
+          const ts = { ...(ancestor.timestamps || {}) }
+          ts.due = dueIso
+          const updates = { ...ancestor, timestamps: ts }
+          try {
+            const ok = await apiUpdateTask(ancId, updates)
+            if (ok) this.placeTask(updates)
+          } catch (err) {
+            console.error('Failed to propagate due to ancestor:', ancId, err)
+          }
+        }
+      }
+    },
   }),
 
   getters: {
@@ -132,6 +163,29 @@ export const useTodoStore = defineStore('todo', {
   },
 
   actions: {
+    getAncestorIds(taskId) {
+      const ids = []
+      let current = this.taskById(taskId)
+      while (current?.parent) {
+        ids.push(current.parent)
+        current = this.taskById(current.parent)
+      }
+      return ids
+    },
+    getLatestDescendantDue(taskId) {
+      const descendants = this.getDescendants(taskId)
+      let latest = null
+      descendants.forEach((d) => {
+        const due = d?.timestamps?.due || d?.due
+        if (due) {
+          const dd = new Date(due)
+          if (!isNaN(dd) && (!latest || dd > latest)) {
+            latest = dd
+          }
+        }
+      })
+      return latest ? latest.toISOString() : null
+    },
     getDescendants(taskId) {
       const all = this.allTasksCombined
       const descendants = []
@@ -443,6 +497,25 @@ export const useTodoStore = defineStore('todo', {
         this.activeTasks.find((t) => t.task_id === taskId) ||
         this.archivedTasks.find((t) => t.task_id === taskId)
       const prevContext = existing?.context ?? null
+      const candidateDue =
+        updates?.timestamps?.due ||
+        updates?.due ||
+        existing?.timestamps?.due ||
+        existing?.due ||
+        null
+      const latestDescDue = this.getLatestDescendantDue(taskId)
+      let mergedDue = candidateDue
+      if (candidateDue && latestDescDue) {
+        const cd = new Date(candidateDue)
+        const ld = new Date(latestDescDue)
+        if (!isNaN(cd) && !isNaN(ld) && cd < ld) {
+          mergedDue = latestDescDue
+        }
+      }
+      if (mergedDue) {
+        updates.timestamps = { ...(existing?.timestamps || {}), ...(updates.timestamps || {}) }
+        updates.timestamps.due = mergedDue
+      }
       if (updates.task_id) {
         success = await apiUpdateTask(taskId, updates)
         if (success) {
@@ -451,6 +524,9 @@ export const useTodoStore = defineStore('todo', {
           const newContext = merged.context ?? null
           if (updates.context !== undefined && newContext !== prevContext) {
             await this.propagateContextToDescendants(taskId, newContext)
+          }
+          if (merged.timestamps?.due) {
+            await this.propagateDueToAncestors(taskId, merged.timestamps.due)
           }
           this.applyFilters()
         }

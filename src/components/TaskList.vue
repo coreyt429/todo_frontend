@@ -117,7 +117,6 @@
 
 <script setup>
 import { computed } from 'vue'
-import { updateTask } from 'src/boot/todoapi'
 import { useTodoStore } from 'stores/todo'
 const props = defineProps({
   label: {
@@ -238,7 +237,7 @@ async function setDue(task, option) {
 
   const updates = { ...task, timestamps: ts }
   try {
-    await updateTask(task.task_id, updates)
+    await todoStore.updateTask(task.task_id, updates)
     task.timestamps = updates.timestamps
     todoStore.applyFilters()
   } catch (err) {
