@@ -4,7 +4,7 @@
       <div class="q-pa-md q-gutter-sm">
         <q-breadcrumbs>
           <q-breadcrumbs-el
-            :label="props.label"
+            :label="labelText"
             clickable
             @click="todoStore.setFilters({ parent: null })"
           />
@@ -84,6 +84,7 @@
 </template>
 
 <script setup>
+import { computed } from 'vue'
 import { useTodoStore } from 'stores/todo'
 const props = defineProps({
   label: {
@@ -94,6 +95,7 @@ const props = defineProps({
 })
 
 const todoStore = useTodoStore()
+const labelText = computed(() => todoStore.activeLabel || props.label)
 console.log('HERE:', todoStore.filters.parent)
 const status_icons = {
   not_started: 'inbox',

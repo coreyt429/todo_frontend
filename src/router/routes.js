@@ -45,6 +45,25 @@ routes.push({
 })
 
 routes.push({
+  path: '/mindmap',
+  component: () => import('layouts/MainLayout.vue'),
+  beforeEnter: (to, from, next) => {
+    const apiKey = localStorage.getItem('auth_token') || ''
+    if (!apiKey) {
+      next('/login')
+    } else {
+      next()
+    }
+  },
+  children: [
+    {
+      path: '',
+      component: () => import('pages/MindMapPage.vue'),
+    },
+  ],
+})
+
+routes.push({
   path: '/login',
   component: () => import('layouts/LoginLayout.vue'),
   children: [

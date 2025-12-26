@@ -1,5 +1,5 @@
 <template>
-  <q-item clickable tag="a" :target="props.target" :href="props.link">
+  <q-item clickable @click.prevent="applyFilters">
     <q-item-section v-if="props.icon" avatar>
       <q-btn dense round flat :icon="props.icon">
         <q-badge color="primary" floating transparent>
@@ -44,4 +44,15 @@ const filters = computed(() => ({
 
 // Computed badgeCount explicitly depends on store tasks and filters
 const badgeCount = computed(() => todoStore.testFilters(filters.value))
+
+function applyFilters() {
+  todoStore.title = props.caption || props.title || 'Todo List'
+  todoStore.activeLabel = props.title || props.caption || 'Todo List'
+  todoStore.setFilters({
+    startDate: props.startDate || todoStore.filters.startDate,
+    endDate: props.endDate || todoStore.filters.endDate,
+    type: props.type || todoStore.filters.type,
+    parent: null,
+  })
+}
 </script>
