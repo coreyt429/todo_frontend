@@ -142,8 +142,15 @@ function buildMindData() {
   if (contextSelection === 'All') {
     const contextRoots = new Map()
     const ctxSet = new Set()
-    sortedTasks.forEach((t) => ctxSet.add(t.context ?? null))
-    ctxSet.add(null)
+    let hasUnassigned = false
+    sortedTasks.forEach((t) => {
+      const ctx = t.context ?? null
+      if (ctx === null) hasUnassigned = true
+      ctxSet.add(ctx)
+    })
+    if (hasUnassigned) {
+      ctxSet.add(null)
+    }
 
     const contextLabels = []
     Array.from(ctxSet).forEach((ctx, idx) => {

@@ -128,11 +128,17 @@ const props = defineProps({
 
 const todoStore = useTodoStore()
 const labelText = computed(() => todoStore.activeLabel || props.label)
+const hasUnassigned = computed(() =>
+  todoStore.allTasksCombined.some(
+    (t) => t.task_id !== 'placeholder' && (t.context === null || t.context === undefined || t.context === ''),
+  ),
+)
+
 const contextOptions = computed(() => {
-  const options = [
-    { label: 'All', value: 'All' },
-    { label: 'Unassigned', value: 'Unassigned' },
-  ]
+  const options = [{ label: 'All', value: 'All' }]
+  if (hasUnassigned.value) {
+    options.push({ label: 'Unassigned', value: 'Unassigned' })
+  }
   const ctxs = todoStore.contexts || []
   ctxs.forEach((ctx) => {
     if (ctx === null || ctx === undefined || ctx === '') return
