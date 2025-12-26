@@ -122,12 +122,12 @@ export const useTodoStore = defineStore('todo', {
      * Getter returning a function that fetches tasks by arbitrary field/value via API.
      * Usage: const rows = await store.searchTasksBy('status', 'in_progress')
      */
-    searchTasksBy: () => async (field, value) => {
-      if (!field || value === undefined) {
-        throw new Error('searchTasksBy requires both field and value')
-      }
-      return await searchTasksByField(field, value)
-    },
+    // searchTasksBy: () => async (field, value) => {
+    //   if (!field || value === undefined) {
+    //     throw new Error('searchTasksBy requires both field and value')
+    //   }
+    //   return await searchTasksByField(field, value)
+    // },
     getAncestors: (state) => (task_id) => {
       // Returns an array of ancestor tasks for the given task_id
       // This is useful for displaying the task hierarchy in the UI
@@ -224,8 +224,7 @@ export const useTodoStore = defineStore('todo', {
     shouldIncludeArchived(filterDefs = {}) {
       const status = filterDefs.status || []
       return (
-        (Array.isArray(status) &&
-          (status.includes('completed') || status.includes('skipped'))) ||
+        (Array.isArray(status) && (status.includes('completed') || status.includes('skipped'))) ||
         this.showCompleted
       )
     },
@@ -249,7 +248,7 @@ export const useTodoStore = defineStore('todo', {
       this.allTemplates = await listTemplates()
       this.applyFilters()
       setTimeout(() => {
-        alert(
+        console.log(
           'This is a placeholder alert for template checks.\n\nThis will be replaced with a more sophisticated notification system in the future.',
         )
         this.checkTemplates()
@@ -589,7 +588,7 @@ export const useTodoStore = defineStore('todo', {
         if (this.checkTemplateCriteria(template)) {
           console.log(`checkTemplates: Template ${template.template_id} matches today.`)
           // Use API-backed getter instead of local filter logic
-          const templateTasks = await this.searchTasksBy('template_id', template.template_id)
+          const templateTasks = await searchTasksByField('template_id', template.template_id)
 
           // Consider a task "existing for today" if its due or tickle is within today
           const start = dateHelper.Today.Start()
