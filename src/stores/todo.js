@@ -3,7 +3,7 @@ import { ref, watch } from 'vue'
 import { dateHelper } from 'src/plugins/dateUtils.js'
 import {
   createTask,
-  updateTask,
+  updateTask as apiUpdateTask,
   deleteTask,
   listTasks,
   searchTasksByField,
@@ -60,6 +60,19 @@ export const useTodoStore = defineStore('todo', {
       search: filterDefaults.search,
       type: filterDefaults.type,
       parent: null,
+    },
+    async propagateContextToDescendants(taskId, context) {
+      const normalized = context === undefined || context === '' ? null : context
+      const descendants = this.getDescendants(taskId)
+      for (const desc of descendants) {
+        const updates = { ...desc, context: normalized }
+        try {
+          const ok = await apiUpdateTask(desc.task_id, updates)
+          if (ok) this.placeTask(updates)
+        } catch (err) {
+          console.error('Failed to propagate context to descendant:', desc.task_id, err)
+        }
+      }
     },
   }),
 
@@ -119,8 +132,22 @@ export const useTodoStore = defineStore('todo', {
   },
 
   actions: {
+    getDescendants(taskId) {
+      const all = this.allTasksCombined
+      const descendants = []
+      const stack = [taskId]
+      while (stack.length) {
+        const current = stack.pop()
+        const children = all.filter((t) => t.parent === current)
+        children.forEach((child) => {
+          descendants.push(child)
+          stack.push(child.task_id)
+        })
+      }
+      return descendants
+    },
     placeTask(task) {
-      if (task.context === undefined) {
+      if (task.context === undefined || task.context === '') {
         task.context = null
       }
       const archived = isArchivedStatus(task.status)
@@ -412,14 +439,19 @@ export const useTodoStore = defineStore('todo', {
         new Error().stack,
       )
       let success = false
+      const existing =
+        this.activeTasks.find((t) => t.task_id === taskId) ||
+        this.archivedTasks.find((t) => t.task_id === taskId)
+      const prevContext = existing?.context ?? null
       if (updates.task_id) {
-        success = await updateTask(taskId, updates)
+        success = await apiUpdateTask(taskId, updates)
         if (success) {
-          const existing =
-            this.activeTasks.find((t) => t.task_id === taskId) ||
-            this.archivedTasks.find((t) => t.task_id === taskId)
           const merged = existing ? { ...existing, ...updates } : updates
           this.placeTask(merged)
+          const newContext = merged.context ?? null
+          if (updates.context !== undefined && newContext !== prevContext) {
+            await this.propagateContextToDescendants(taskId, newContext)
+          }
           this.applyFilters()
         }
       } else if (updates.template_id) {
