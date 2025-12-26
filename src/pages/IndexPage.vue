@@ -1,10 +1,11 @@
 <template>
   <q-page class="flex">
     <div class="row full-width">
-      <div cols="6" class="col left-column">
-        <TaskList :label="props.label" />
+      <div class="col left-column">
+        <TaskList v-if="todoStore.viewMode === 'list'" :label="props.label" />
+        <MindMapPage v-else :show-details="false" />
       </div>
-      <div v-if="todoStore.currentTaskId" cols="6" class="col right-column">
+      <div v-if="todoStore.currentTaskId" class="col right-column">
         <TaskView />
       </div>
     </div>
@@ -14,6 +15,7 @@
 <script setup>
 import TaskList from 'src/components/TaskList.vue'
 import TaskView from 'src/components/TaskView.vue'
+import MindMapPage from './MindMapPage.vue'
 // import { getCurrentInstance } from 'vue'
 import { useTodoStore } from 'stores/todo'
 import { watch, onMounted } from 'vue'

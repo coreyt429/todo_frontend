@@ -11,7 +11,7 @@
           @move-in="onMoveIn"
         />
       </div>
-      <div v-if="todoStore.currentTaskId" class="col right-column">
+      <div v-if="showDetails && todoStore.currentTaskId" class="col right-column">
         <TaskView />
       </div>
     </div>
@@ -25,6 +25,13 @@ import { useTodoStore } from 'stores/todo'
 import TaskView from 'src/components/TaskView.vue'
 import { createTask } from 'src/boot/todoapi'
 import { updateTask } from 'src/boot/todoapi'
+
+// const props = defineProps({
+//   showDetails: {
+//     type: Boolean,
+//     default: true,
+//   },
+// })
 
 const todoStore = useTodoStore()
 

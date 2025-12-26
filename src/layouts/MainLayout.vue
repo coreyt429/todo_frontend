@@ -24,6 +24,15 @@
       <div class="row justify-end q-mt-md q-gutter-sm">
         <q-btn icon="download" color="primary" @click="downloadBackup" round flat />
         <q-btn icon="filter_list" color="primary" @click="showFilters = !showFilters" round flat />
+        <q-btn
+          :icon="todoStore.viewMode === 'map' ? 'list' : 'account_tree'"
+          color="primary"
+          @click="toggleView"
+          round
+          flat
+        >
+          <q-tooltip>{{ todoStore.viewMode === 'map' ? 'List View' : 'Mind Map View' }}</q-tooltip>
+        </q-btn>
         <!-- Add more action buttons here as needed -->
       </div>
       <q-card v-if="showFilters" class="q-mt-sm">
@@ -78,5 +87,9 @@ async function downloadBackup() {
 
 function toggleLeftDrawer() {
   leftDrawerOpen.value = !leftDrawerOpen.value
+}
+
+function toggleView() {
+  todoStore.viewMode = todoStore.viewMode === 'map' ? 'list' : 'map'
 }
 </script>

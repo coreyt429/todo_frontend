@@ -34,6 +34,7 @@ export const useTodoStore = defineStore('todo', {
   state: () => ({
     title: 'Todo List', // Default title for the todo list
     activeLabel: 'Todo List', // Label for list/map views
+    viewMode: 'list', // 'list' or 'map'
     currentTaskId: null, // Holds the ID of the currently selected task or template
     filteredTasks: [], // Current filtered task list
     showCompleted: ref(
