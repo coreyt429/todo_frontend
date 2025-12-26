@@ -24,6 +24,7 @@ const filterDefaults = {
   search: '',
   type: ['project', 'task'],
   parent: null,
+  context: 'All',
 }
 
 const archivedStatuses = ['completed', 'skipped']
@@ -64,6 +65,14 @@ export const useTodoStore = defineStore('todo', {
 
   getters: {
     allTasksCombined: (state) => [...state.activeTasks, ...state.archivedTasks],
+    contexts: (state) => {
+      const ctxs = new Set()
+      state.activeTasks.concat(state.archivedTasks).forEach((t) => {
+        const c = t?.context ?? null
+        ctxs.add(c)
+      })
+      return Array.from(ctxs)
+    },
     /**
      * Getter returning a function that fetches tasks by arbitrary field/value via API.
      * Usage: const rows = await store.searchTasksBy('status', 'in_progress')
@@ -111,6 +120,9 @@ export const useTodoStore = defineStore('todo', {
 
   actions: {
     placeTask(task) {
+      if (task.context === undefined) {
+        task.context = null
+      }
       const archived = isArchivedStatus(task.status)
       const target = archived ? this.archivedTasks : this.activeTasks
       const other = archived ? this.activeTasks : this.archivedTasks
@@ -146,8 +158,12 @@ export const useTodoStore = defineStore('todo', {
       // Fetches all tasks and templates from the API and applies filters
       console.log('loadTasks() called from:', new Error().stack)
       const tasks = await listTasks()
-      this.activeTasks = tasks.filter((t) => !isArchivedStatus(t.status))
-      this.archivedTasks = tasks.filter((t) => isArchivedStatus(t.status))
+      const normalized = tasks.map((t) => ({
+        ...t,
+        context: t.context ?? null,
+      }))
+      this.activeTasks = normalized.filter((t) => !isArchivedStatus(t.status))
+      this.archivedTasks = normalized.filter((t) => isArchivedStatus(t.status))
       this.allTemplates = await listTemplates()
       this.applyFilters()
       setTimeout(() => {
@@ -243,13 +259,21 @@ export const useTodoStore = defineStore('todo', {
       const matchesSearch = JSON.stringify(task)
         .toLowerCase()
         .includes(filterDefs.search.toLowerCase())
+      const matchesContext = (() => {
+        const selection = filterDefs.context || 'All'
+        const ctx = task.context ?? null
+        if (selection === 'All') return true
+        if (selection === 'Unassigned') return ctx === null || ctx === undefined || ctx === ''
+        return ctx === selection
+      })()
       return (
         matchesStatus &&
         matchesPriority &&
         matchesDate &&
         matchesSearch &&
         matchesType &&
-        matchesTemplate
+        matchesTemplate &&
+        matchesContext
       )
     },
     tasklistSort(tasks) {

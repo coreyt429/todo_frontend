@@ -72,6 +72,10 @@ const props = defineProps({
     type: Array,
     default: () => [],
   },
+  context: {
+    type: String,
+    default: 'All',
+  },
 })
 const emit = defineEmits(['node-select', 'add-child', 'add-sibling', 'move-in'])
 
@@ -88,6 +92,7 @@ const activeTasks = computed(() =>
 function buildMindData() {
   const nodes = new Map()
   const roots = []
+  const contextSelection = props.context || 'All'
 
   activeTasks.value.forEach((task) => {
     const node = {
@@ -95,6 +100,8 @@ function buildMindData() {
       topic: task.name || 'Untitled task',
       expanded: true,
       tags: task.priority && task.priority !== 'Not set' ? [task.priority] : undefined,
+      context: task.context ?? null,
+      parent: task.parent || null,
       children: [],
     }
     const ts = getTaskTimestamp(task)
@@ -132,6 +139,56 @@ function buildMindData() {
     return (a.name || '').localeCompare(b.name || '')
   })
 
+  if (contextSelection === 'All') {
+    const contextRoots = new Map()
+    const ctxSet = new Set()
+    sortedTasks.forEach((t) => ctxSet.add(t.context ?? null))
+    ctxSet.add(null)
+
+    const contextLabels = []
+    Array.from(ctxSet).forEach((ctx, idx) => {
+      const label = ctx === null || ctx === undefined || ctx === '' ? 'Unassigned' : ctx
+      const ctxId = `ctx-${label}`
+      const node = {
+        id: ctxId,
+        topic: label,
+        expanded: true,
+        direction: idx % 2,
+        children: [],
+        isContextNode: true,
+        context: ctx,
+      }
+      contextRoots.set(ctx, node)
+      contextLabels.push(node)
+    })
+
+    sortedTasks.forEach((task) => {
+      const node = nodes.get(task.task_id)
+      if (!node) return
+      const parentId = task.parent
+      const taskCtx = task.context ?? null
+      const contextNode = contextRoots.get(taskCtx) || contextRoots.get(null)
+      if (parentId && nodes.has(parentId)) {
+        nodes.get(parentId)?.children?.push(node)
+      } else {
+        contextNode?.children?.push(node)
+      }
+    })
+
+    roots.push(...contextLabels)
+
+    return {
+      nodeData: {
+        id: 'mind-map-root',
+        topic: 'Contexts',
+        expanded: true,
+        children: roots,
+      },
+    }
+  }
+
+  const rootTopic = contextSelection === 'Unassigned' ? 'Unassigned' : contextSelection
+
   sortedTasks.forEach((task, index) => {
     const node = nodes.get(task.task_id)
     if (!node) return
@@ -147,7 +204,7 @@ function buildMindData() {
   return {
     nodeData: {
       id: 'mind-map-root',
-      topic: 'Todo Mind Map',
+      topic: rootTopic || 'Todo Mind Map',
       expanded: true,
       children: roots,
     },
@@ -221,6 +278,12 @@ watch(
     renderMindMap()
   },
   { deep: true },
+)
+watch(
+  () => props.context,
+  () => {
+    renderMindMap()
+  },
 )
 
 onMounted(() => {

@@ -4,6 +4,7 @@
       <div class="col left-column">
         <MindMap
           :tasks="activeTasks"
+          :context="todoStore.filters.context"
           @node-select="onNodeSelect"
           @add-child="onAddChild"
           @add-sibling="onAddSibling"

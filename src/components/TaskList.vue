@@ -31,6 +31,16 @@
         @keyup="todoStore.applyFilters"
         style="flex: 1"
       />
+      <q-select
+        dense
+        outlined
+        v-model="contextSelection"
+        :options="contextOptions"
+        label="Context"
+        style="width: 180px"
+        emit-value
+        map-options
+      />
       <q-btn-dropdown icon="add" color="primary" no-caps label="New">
         <q-list>
           <q-item clickable v-ripple @click="todoStore.addTask('task')">
@@ -119,6 +129,25 @@ const props = defineProps({
 
 const todoStore = useTodoStore()
 const labelText = computed(() => todoStore.activeLabel || props.label)
+const contextOptions = computed(() => {
+  const options = [
+    { label: 'All', value: 'All' },
+    { label: 'Unassigned', value: 'Unassigned' },
+  ]
+  const ctxs = todoStore.contexts || []
+  ctxs.forEach((ctx) => {
+    if (ctx === null || ctx === undefined || ctx === '') return
+    options.push({ label: ctx, value: ctx })
+  })
+  return options
+})
+
+const contextSelection = computed({
+  get: () => todoStore.filters.context || 'All',
+  set: (val) => {
+    todoStore.setFilters({ context: val || 'All' })
+  },
+})
 console.log('HERE:', todoStore.filters.parent)
 const status_icons = {
   not_started: 'inbox',
