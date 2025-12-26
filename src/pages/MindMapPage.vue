@@ -57,7 +57,7 @@ async function createChildTask(parentId, name) {
     if (createdId) {
       task.task_id = createdId
     }
-    todoStore.allTasks.push(task)
+    todoStore.placeTask(task)
     todoStore.applyFilters()
     todoStore.setCurrentTask(task)
   } catch (err) {
@@ -104,8 +104,8 @@ async function onMoveIn({ movedIds, newParentId }) {
 onMounted(() => {
   todoStore.title = 'Mind Map'
   if (
-    !todoStore.allTasks.length ||
-    (todoStore.allTasks.length === 1 && todoStore.allTasks[0]?.task_id === 'placeholder')
+    !todoStore.activeTasks.length ||
+    (todoStore.activeTasks.length === 1 && todoStore.activeTasks[0]?.task_id === 'placeholder')
   ) {
     todoStore.loadTasks()
   }

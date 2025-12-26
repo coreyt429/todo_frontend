@@ -26,6 +26,9 @@ const filterDefaults = {
   parent: null,
 }
 
+const archivedStatuses = ['completed', 'skipped']
+const isArchivedStatus = (status) => archivedStatuses.includes((status || '').toLowerCase())
+
 export const useTodoStore = defineStore('todo', {
   state: () => ({
     title: 'Todo List', // Default title for the todo list
@@ -37,7 +40,7 @@ export const useTodoStore = defineStore('todo', {
         ? JSON.parse(localStorage.getItem('showCompleted'))
         : false,
     ), // Flag to show completed tasks
-    allTasks: [
+    activeTasks: [
       {
         name: 'Tasks Loading',
         task_id: 'placeholder',
@@ -45,6 +48,7 @@ export const useTodoStore = defineStore('todo', {
         timestamps: { due: dateHelper.Today.BusinessClosing },
       },
     ], // All tasks fetched from the API
+    archivedTasks: [], // Completed/skipped tasks
     allTemplates: [], // All templates fetched from the API
     filters: {
       // Default filters for tasks
@@ -59,6 +63,7 @@ export const useTodoStore = defineStore('todo', {
   }),
 
   getters: {
+    allTasksCombined: (state) => [...state.activeTasks, ...state.archivedTasks],
     /**
      * Getter returning a function that fetches tasks by arbitrary field/value via API.
      * Usage: const rows = await store.searchTasksBy('status', 'in_progress')
@@ -73,7 +78,7 @@ export const useTodoStore = defineStore('todo', {
       // Returns an array of ancestor tasks for the given task_id
       // This is useful for displaying the task hierarchy in the UI
       console.log(`getAncestors(${task_id}) called from:`, new Error().stack)
-      const task = state.allTasks.find((t) => t.task_id === task_id)
+      const task = [...state.activeTasks, ...state.archivedTasks].find((t) => t.task_id === task_id)
       if (!task) {
         console.warn('Task not found for ID:', task_id)
         return []
@@ -81,7 +86,9 @@ export const useTodoStore = defineStore('todo', {
       const ancestors = []
       let currentTask = task
       while (currentTask && currentTask.parent) {
-        const parentTask = state.allTasks.find((t) => t.task_id === currentTask.parent)
+        const parentTask = [...state.activeTasks, ...state.archivedTasks].find(
+          (t) => t.task_id === currentTask.parent,
+        )
         if (parentTask) {
           ancestors.push(parentTask)
           currentTask = parentTask
@@ -96,17 +103,51 @@ export const useTodoStore = defineStore('todo', {
       // Returns the task or template by its ID
       console.log(`taskById(${task_id}) called from:`, new Error().stack)
       return (
-        state.allTasks.find((t) => t.task_id === task_id) ||
+        [...state.activeTasks, ...state.archivedTasks].find((t) => t.task_id === task_id) ||
         state.allTemplates.find((t) => t.template_id === task_id)
       )
     },
   },
 
   actions: {
+    placeTask(task) {
+      const archived = isArchivedStatus(task.status)
+      const target = archived ? this.archivedTasks : this.activeTasks
+      const other = archived ? this.activeTasks : this.archivedTasks
+
+      const otherIdx = other.findIndex((t) => t.task_id === task.task_id)
+      if (otherIdx !== -1) {
+        other.splice(otherIdx, 1)
+      }
+
+      const idx = target.findIndex((t) => t.task_id === task.task_id)
+      if (idx !== -1) {
+        Object.assign(target[idx], task)
+      } else {
+        target.push(task)
+      }
+    },
+    shouldIncludeArchived(filterDefs = {}) {
+      const status = filterDefs.status || []
+      return (
+        (Array.isArray(status) &&
+          (status.includes('completed') || status.includes('skipped'))) ||
+        this.showCompleted
+      )
+    },
+    getTaskPool(filterDefs = {}) {
+      const tasks = [...this.activeTasks]
+      if (this.shouldIncludeArchived(filterDefs)) {
+        tasks.push(...this.archivedTasks)
+      }
+      return tasks
+    },
     async loadTasks() {
       // Fetches all tasks and templates from the API and applies filters
       console.log('loadTasks() called from:', new Error().stack)
-      this.allTasks = await listTasks()
+      const tasks = await listTasks()
+      this.activeTasks = tasks.filter((t) => !isArchivedStatus(t.status))
+      this.archivedTasks = tasks.filter((t) => isArchivedStatus(t.status))
       this.allTemplates = await listTemplates()
       this.applyFilters()
       setTimeout(() => {
@@ -131,7 +172,7 @@ export const useTodoStore = defineStore('todo', {
       // Returns an array of child tasks for the given task_id
       console.log(`childrenById(${task_id}) called from:`, new Error().stack)
       const children =
-        this.allTasks.filter((t) => t.parent === task_id) ||
+        this.getTaskPool({ status: this.filters.status }).filter((t) => t.parent === task_id) ||
         this.allTemplates.filter((t) => t.parent === task_id)
       return children.length > 0 ? children : null
     },
@@ -250,7 +291,7 @@ export const useTodoStore = defineStore('todo', {
       }
       // compile task list
       const compiledtasks = []
-      compiledtasks.push(...this.allTasks)
+      compiledtasks.push(...this.getTaskPool(filterDefs))
       if (filterDefs.type.includes('template')) {
         compiledtasks.push(...this.allTemplates)
       }
@@ -295,7 +336,7 @@ export const useTodoStore = defineStore('todo', {
       if (type === 'task' || type === 'project') {
         const taskId = await createTask(task)
         task.task_id = taskId
-        this.allTasks.push(task)
+        this.placeTask(task)
       } else if (type === 'template') {
         const templateId = await createTemplate(task)
         task.template_id = templateId
@@ -337,7 +378,7 @@ export const useTodoStore = defineStore('todo', {
       const taskId = await createTask(newTask)
       newTask.task_id = taskId
 
-      this.allTasks.push(newTask)
+      this.placeTask(newTask)
       // this.applyFilters()
       console.log('createTaskFromTemplate: New task created from template:', newTask)
     },
@@ -350,10 +391,11 @@ export const useTodoStore = defineStore('todo', {
       if (updates.task_id) {
         success = await updateTask(taskId, updates)
         if (success) {
-          const index = this.allTasks.findIndex((t) => t.task_id === taskId)
-          if (index !== -1) {
-            Object.assign(this.allTasks[index], updates)
-          }
+          const existing =
+            this.activeTasks.find((t) => t.task_id === taskId) ||
+            this.archivedTasks.find((t) => t.task_id === taskId)
+          const merged = existing ? { ...existing, ...updates } : updates
+          this.placeTask(merged)
           this.applyFilters()
         }
       } else if (updates.template_id) {
@@ -383,7 +425,8 @@ export const useTodoStore = defineStore('todo', {
       }
       const success = await deleteTask(taskId)
       if (success) {
-        this.allTasks = this.allTasks.filter((t) => t.task_id !== taskId)
+        this.activeTasks = this.activeTasks.filter((t) => t.task_id !== taskId)
+        this.archivedTasks = this.archivedTasks.filter((t) => t.task_id !== taskId)
         this.applyFilters()
       }
     },

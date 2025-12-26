@@ -58,6 +58,13 @@ onMounted(() => {
   } else {
     console.log('No start or end date provided')
   }
+
+  if (
+    !todoStore.activeTasks.length ||
+    (todoStore.activeTasks.length === 1 && todoStore.activeTasks[0]?.task_id === 'placeholder')
+  ) {
+    todoStore.loadTasks()
+  }
 })
 
 watch(
