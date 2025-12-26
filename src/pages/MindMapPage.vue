@@ -30,6 +30,9 @@ const todoStore = useTodoStore()
 // Use the same filtered list as the TaskList page to keep both views in sync
 const activeTasks = computed(() => todoStore.filteredTasks || [])
 
+// Guard to prevent duplicate task creation loops from mind map events
+let isCreatingFromMindMap = false
+
 function newUuid() {
   if (typeof crypto !== 'undefined' && crypto.randomUUID) {
     return crypto.randomUUID()
@@ -38,6 +41,12 @@ function newUuid() {
 }
 
 async function createChildTask(parentId, name) {
+  if (isCreatingFromMindMap) {
+    console.warn('Mind map createChildTask already in progress, skipping duplicate')
+    return
+  }
+  isCreatingFromMindMap = true
+
   const task = todoStore.taskDefaults ? todoStore.taskDefaults('task') : { name: 'New Task' }
   task.parent = parentId && parentId !== 'mind-map-root' ? parentId : null
   task.name = name || task.name || 'New Task'
@@ -53,6 +62,8 @@ async function createChildTask(parentId, name) {
     todoStore.setCurrentTask(task)
   } catch (err) {
     console.error('Failed to create task from mind map action:', err)
+  } finally {
+    isCreatingFromMindMap = false
   }
 }
 
