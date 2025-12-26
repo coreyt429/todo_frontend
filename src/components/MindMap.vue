@@ -6,6 +6,67 @@ import MindElixir from 'mind-elixir'
 import 'mind-elixir/style.css'
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 
+function getPriorityRank(priority) {
+  if (!priority) return 9
+  switch (priority.toLowerCase()) {
+    case 'urgent':
+      return 0
+    case 'high':
+      return 1
+    case 'medium':
+      return 2
+    case 'low':
+      return 3
+    default:
+      return 9
+  }
+}
+
+function getTaskTimestamp(task) {
+  const timestamps = task.timestamp || task.timestamps || {}
+  const tickle = timestamps.tickle || task.tickle
+  const due = timestamps.due || task.due
+  const created = timestamps.created || task.created
+  if (tickle) return tickle
+  if (due) return due
+  if (created) return created
+  return null
+}
+
+function getNodeStyle(task) {
+  const ts = getTaskTimestamp(task)
+  let dueDate = null
+  if (ts) {
+    const parsedDate = new Date(ts)
+    if (!isNaN(parsedDate)) {
+      dueDate = parsedDate
+    }
+  }
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  const tomorrow = new Date(today)
+  tomorrow.setDate(today.getDate() + 1)
+
+  if (dueDate) {
+    if (dueDate < today) {
+      return { background: '#000000', color: '#f44336' }
+    } else if (dueDate < tomorrow) {
+      return { background: '#000000', color: '#ff9800' }
+    }
+  }
+
+  const priority = (task.priority || '').toLowerCase()
+  if (priority === 'high' || priority === 'urgent') {
+    return { background: '#000000', color: '#ff9800' }
+  } else if (priority === 'medium') {
+    return { background: '#000000', color: '#ffeb3b' }
+  } else if (priority === 'low') {
+    return { background: '#000000', color: '#4caf50' }
+  }
+
+  return null
+}
+
 const props = defineProps({
   tasks: {
     type: Array,
@@ -29,18 +90,47 @@ function buildMindData() {
   const roots = []
 
   activeTasks.value.forEach((task) => {
-    nodes.set(task.task_id, {
+    const node = {
       id: task.task_id,
       topic: task.name || 'Untitled task',
       expanded: true,
       tags: task.priority && task.priority !== 'Not set' ? [task.priority] : undefined,
       children: [],
-    })
+    }
+    const ts = getTaskTimestamp(task)
+    if (ts) {
+      node.note = `Due: ${ts}`
+    }
+    const style = getNodeStyle(task)
+    if (style) {
+      node.style = style
+    }
+    nodes.set(task.task_id, node)
   })
 
-  const sortedTasks = [...activeTasks.value].sort((a, b) =>
-    (a.name || '').localeCompare(b.name || ''),
-  )
+  const sortedTasks = [...activeTasks.value].sort((a, b) => {
+    const pa = getPriorityRank(a.priority)
+    const pb = getPriorityRank(b.priority)
+    if (pa !== pb) return pa - pb
+
+    const da = getTaskTimestamp(a)
+    const db = getTaskTimestamp(b)
+
+    if (da && db) {
+      const dateA = new Date(da)
+      const dateB = new Date(db)
+      if (!isNaN(dateA) && !isNaN(dateB)) {
+        if (dateA < dateB) return -1
+        if (dateA > dateB) return 1
+      }
+    } else if (da && !db) {
+      return -1
+    } else if (!da && db) {
+      return 1
+    }
+
+    return (a.name || '').localeCompare(b.name || '')
+  })
 
   sortedTasks.forEach((task, index) => {
     const node = nodes.get(task.task_id)
@@ -68,16 +158,19 @@ function renderMindMap() {
   if (!mapContainer.value) return
   const data = buildMindData()
 
-  if (mindInstance.value?.destroy) {
-    mindInstance.value.destroy()
+  // if (mindInstance.value?.destroy) {
+  //   mindInstance.value.destroy()
+  // }
+  if (!mindInstance.value) {
+    mindInstance.value = new MindElixir({
+      el: mapContainer.value,
+      // Use SIDE so branches distribute around the root instead of a single side
+      direction: MindElixir.SIDE,
+    })
+    mindInstance.value.init(data)
+  } else {
+    mindInstance.value.refresh(data)
   }
-
-  mindInstance.value = new MindElixir({
-    el: mapContainer.value,
-    // Use SIDE so branches distribute around the root instead of a single side
-    direction: MindElixir.SIDE,
-  })
-  mindInstance.value.init(data)
 
   // MindElixir fires "selectNewNode" when a node is selected
   // mindInstance.value.bus?.addListener?.('selectNewNode', (nodeObj) => {
