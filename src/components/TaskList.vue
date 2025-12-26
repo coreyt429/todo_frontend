@@ -74,7 +74,29 @@
                 {{ todoStore.childrenById(task.task_id)?.length || 0 }} subtasks
               </div>
             </q-toolbar-title>
-            <div class="text-caption">Due: {{ format_due_date(task.timestamps?.due ?? null) }}</div>
+            <div class="text-caption row items-center q-gutter-xs">
+              <span>Due:</span>
+              <q-btn-dropdown
+                dense
+                flat
+                size="sm"
+                color="primary"
+                :label="format_due_date(task.timestamps?.due ?? null)"
+                @click.stop
+              >
+                <q-list style="min-width: 180px">
+                  <q-item clickable v-ripple @click.stop="setDue(task, 'tomorrow')">
+                    <q-item-section>Tomorrow</q-item-section>
+                  </q-item>
+                  <q-item clickable v-ripple @click.stop="setDue(task, 'nextWeek')">
+                    <q-item-section>Next Monday</q-item-section>
+                  </q-item>
+                  <q-item clickable v-ripple @click.stop="setDue(task, 'nextMonth')">
+                    <q-item-section>First of Next Month</q-item-section>
+                  </q-item>
+                </q-list>
+              </q-btn-dropdown>
+            </div>
           </q-toolbar>
           <div class="text-subtitle2">{{ task.notes }}</div>
         </q-card-section>
@@ -85,6 +107,7 @@
 
 <script setup>
 import { computed } from 'vue'
+import { updateTask } from 'src/boot/todoapi'
 import { useTodoStore } from 'stores/todo'
 const props = defineProps({
   label: {
@@ -144,6 +167,54 @@ function format_due_date(due) {
   if (isTomorrow) return `Tomorrow ${time12}`
 
   return `${pad(date.getMonth() + 1)}/${pad(date.getDate())} ${time12}`
+}
+
+function cob(date) {
+  const d = new Date(date)
+  d.setHours(17, 0, 0, 0)
+  return d
+}
+
+function nextMonday(base) {
+  const d = new Date(base)
+  const day = d.getDay()
+  const diff = (8 - day) % 7 || 7
+  d.setDate(d.getDate() + diff)
+  return d
+}
+
+function firstOfNextMonth(base) {
+  const d = new Date(base)
+  d.setMonth(d.getMonth() + 1, 1)
+  return d
+}
+
+async function setDue(task, option) {
+  const now = new Date()
+  let target
+  if (option === 'tomorrow') target = cob(new Date(now.setDate(now.getDate() + 1)))
+  else if (option === 'nextWeek') target = cob(nextMonday(new Date()))
+  else if (option === 'nextMonth') target = cob(firstOfNextMonth(new Date()))
+  else return
+
+  const ts = { ...(task.timestamps || {}) }
+  const newIso = target.toISOString()
+
+  const due = ts.due ? new Date(ts.due) : null
+  const tickle = ts.tickle ? new Date(ts.tickle) : null
+
+  // Only push forward dates; do not move earlier than existing values
+  if (!due || due < target) ts.due = newIso
+  if (!tickle || tickle < target) ts.tickle = newIso
+
+  const updates = { ...task, timestamps: ts }
+  try {
+    await updateTask(task.task_id, updates)
+    task.timestamps = updates.timestamps
+    todoStore.applyFilters()
+  } catch (err) {
+    console.error('Failed to update due date:', err)
+  }
 }
 </script>
 
