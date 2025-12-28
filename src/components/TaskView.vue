@@ -60,16 +60,50 @@ task object as a prop // We should show an editor with the json representation o
       </div>
       <div class="text-caption row items-center q-gutter-xs">
         <span>Status:</span>
-        <q-select
+        <q-btn-dropdown
           dense
-          outlined
-          emit-value
-          map-options
-          :options="statusOptions"
-          v-model="currentTask.status"
-          @update:model-value="(val) => setStatus(currentTask, val)"
-          style="min-width: 180px"
-        />
+          flat
+          size="sm"
+          color="primary"
+          :label="currentTask.status || 'Not set'"
+        >
+          <q-list style="min-width: 180px">
+            <q-item
+              v-for="opt in statusOptions"
+              :key="opt.value"
+              clickable
+              v-ripple
+              @click.stop="setStatus(currentTask, opt.value)"
+            >
+              <q-item-section>{{ opt.label }}</q-item-section>
+            </q-item>
+          </q-list>
+        </q-btn-dropdown>
+      </div>
+      <div class="text-caption row items-center q-gutter-xs">
+        <span>Context:</span>
+        <q-btn-dropdown
+          dense
+          flat
+          size="sm"
+          color="primary"
+          :label="formatContext(currentTask.context)"
+        >
+          <q-list style="min-width: 200px">
+            <q-item clickable v-ripple @click.stop="setContext(currentTask, null)">
+              <q-item-section>Unassigned</q-item-section>
+            </q-item>
+            <q-item
+              v-for="opt in contextOptions"
+              :key="opt.value"
+              clickable
+              v-ripple
+              @click.stop="setContext(currentTask, opt.value)"
+            >
+              <q-item-section>{{ opt.label }}</q-item-section>
+            </q-item>
+          </q-list>
+        </q-btn-dropdown>
       </div>
     </q-card-section>
 
@@ -153,6 +187,13 @@ const statusOptions = computed(() => {
     if (t.status) set.add(t.status)
   })
   return Array.from(set).map((s) => ({ label: s, value: s }))
+})
+const contextOptions = computed(() => {
+  const set = new Set()
+  todoStore.contexts.forEach((c) => {
+    if (c !== null && c !== undefined && c !== '') set.add(c)
+  })
+  return Array.from(set).map((c) => ({ label: c, value: c }))
 })
 
 function load_editorContent() {
@@ -247,6 +288,25 @@ async function setStatus(task, status) {
     load_editorContent()
   } catch (err) {
     console.error('Failed to update status:', err)
+  }
+}
+
+function formatContext(ctx) {
+  if (ctx === null || ctx === undefined || ctx === '') return 'Unassigned'
+  return ctx
+}
+
+async function setContext(task, context) {
+  if (!task) return
+  const normalized = context === '' ? null : context
+  const updates = { ...task, context: normalized }
+  try {
+    await todoStore.updateTask(task.task_id, updates)
+    task.context = normalized
+    todoStore.applyFilters()
+    load_editorContent()
+  } catch (err) {
+    console.error('Failed to update context:', err)
   }
 }
 

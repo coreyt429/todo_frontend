@@ -115,16 +115,26 @@
             </div>
             <div class="text-caption row items-center q-gutter-xs">
               <span>Status:</span>
-              <q-select
+              <q-btn-dropdown
                 dense
-                outlined
-                emit-value
-                map-options
-                :options="statusOptions"
-                v-model="task.status"
-                @update:model-value="(val) => setStatus(task, val)"
-                style="min-width: 160px"
-              />
+                flat
+                size="sm"
+                color="primary"
+                :label="task.status || 'Not set'"
+                @click.stop
+              >
+                <q-list style="min-width: 160px">
+                  <q-item
+                    v-for="opt in statusOptions"
+                    :key="opt.value"
+                    clickable
+                    v-ripple
+                    @click.stop="setStatus(task, opt.value)"
+                  >
+                    <q-item-section>{{ opt.label }}</q-item-section>
+                  </q-item>
+                </q-list>
+              </q-btn-dropdown>
             </div>
           </q-toolbar>
           <div class="text-subtitle2">{{ task.notes }}</div>
