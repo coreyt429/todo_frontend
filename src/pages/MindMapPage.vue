@@ -59,6 +59,10 @@ async function createChildTask(parentId, name) {
   task.parent = parentId && parentId !== 'mind-map-root' ? parentId : null
   task.name = name || task.name || 'New Task'
   task.task_id = newUuid()
+  const parentTask = parentId ? todoStore.taskById(parentId) : null
+  if (parentTask && parentTask.context !== undefined) {
+    task.context = parentTask.context
+  }
 
   try {
     const createdId = await createTask(task)

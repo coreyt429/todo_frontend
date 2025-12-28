@@ -95,6 +95,9 @@
                 @click.stop
               >
                 <q-list style="min-width: 180px">
+                  <q-item clickable v-ripple @click.stop="setDue(task, 'today')">
+                    <q-item-section>Today</q-item-section>
+                  </q-item>
                   <q-item clickable v-ripple @click.stop="setDue(task, 'tomorrow')">
                     <q-item-section>Tomorrow</q-item-section>
                   </q-item>
@@ -104,8 +107,24 @@
                   <q-item clickable v-ripple @click.stop="setDue(task, 'nextMonth')">
                     <q-item-section>First of Next Month</q-item-section>
                   </q-item>
+                  <q-item clickable v-ripple @click.stop="setDue(task, 'nextQuarter')">
+                    <q-item-section>First of Next Quarter</q-item-section>
+                  </q-item>
                 </q-list>
               </q-btn-dropdown>
+            </div>
+            <div class="text-caption row items-center q-gutter-xs">
+              <span>Status:</span>
+              <q-select
+                dense
+                outlined
+                emit-value
+                map-options
+                :options="statusOptions"
+                v-model="task.status"
+                @update:model-value="(val) => setStatus(task, val)"
+                style="min-width: 160px"
+              />
             </div>
           </q-toolbar>
           <div class="text-subtitle2">{{ task.notes }}</div>
@@ -130,7 +149,9 @@ const todoStore = useTodoStore()
 const labelText = computed(() => todoStore.activeLabel || props.label)
 const hasUnassigned = computed(() =>
   todoStore.allTasksCombined.some(
-    (t) => t.task_id !== 'placeholder' && (t.context === null || t.context === undefined || t.context === ''),
+    (t) =>
+      t.task_id !== 'placeholder' &&
+      (t.context === null || t.context === undefined || t.context === ''),
   ),
 )
 
@@ -152,6 +173,14 @@ const contextSelection = computed({
   set: (val) => {
     todoStore.setFilters({ context: val || 'All' })
   },
+})
+
+const statusOptions = computed(() => {
+  const set = new Set(['not_started', 'in_progress', 'blocked', 'completed', 'skipped'])
+  todoStore.allTasksCombined.forEach((t) => {
+    if (t.status) set.add(t.status)
+  })
+  return Array.from(set).map((s) => ({ label: s, value: s }))
 })
 console.log('HERE:', todoStore.filters.parent)
 const status_icons = {
@@ -223,12 +252,22 @@ function firstOfNextMonth(base) {
   return d
 }
 
+function firstOfNextQuarter(base) {
+  const d = new Date(base)
+  const month = d.getMonth()
+  const nextQuarterMonth = Math.floor(month / 3) * 3 + 3
+  d.setMonth(nextQuarterMonth, 1)
+  return d
+}
+
 async function setDue(task, option) {
   const now = new Date()
   let target
-  if (option === 'tomorrow') target = cob(new Date(now.setDate(now.getDate() + 1)))
+  if (option === 'today') target = cob(new Date())
+  else if (option === 'tomorrow') target = cob(new Date(now.setDate(now.getDate() + 1)))
   else if (option === 'nextWeek') target = cob(nextMonday(new Date()))
   else if (option === 'nextMonth') target = cob(firstOfNextMonth(new Date()))
+  else if (option === 'nextQuarter') target = cob(firstOfNextQuarter(new Date()))
   else return
 
   const ts = { ...(task.timestamps || {}) }
@@ -248,6 +287,18 @@ async function setDue(task, option) {
     todoStore.applyFilters()
   } catch (err) {
     console.error('Failed to update due date:', err)
+  }
+}
+
+async function setStatus(task, status) {
+  if (!status) return
+  const updates = { ...task, status }
+  try {
+    await todoStore.updateTask(task.task_id, updates)
+    task.status = status
+    todoStore.applyFilters()
+  } catch (err) {
+    console.error('Failed to update status:', err)
   }
 }
 </script>

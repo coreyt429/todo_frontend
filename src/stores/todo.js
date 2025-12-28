@@ -428,10 +428,20 @@ export const useTodoStore = defineStore('todo', {
         status: 'not_started',
         priority: 'low',
         parent: this.filters.parent || null,
+        context: null,
         timestamps: {
           due: dateHelper.Week.BusinessClosing(),
           tickle: dateHelper.Tomorrow.BusinessOpening(),
         },
+      }
+      if (taskTemplate.parent) {
+        const parentTask = this.taskById(taskTemplate.parent)
+        if (parentTask && parentTask.context !== undefined) {
+          taskTemplate.context = parentTask.context
+        }
+      }
+      if (!taskTemplate.context && this.filters.context && this.filters.context !== 'All') {
+        taskTemplate.context = this.filters.context === 'Unassigned' ? null : this.filters.context
       }
       if (type === 'template') {
         taskTemplate.criteria = {
