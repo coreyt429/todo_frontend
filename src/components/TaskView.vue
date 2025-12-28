@@ -25,6 +25,57 @@ task object as a prop // We should show an editor with the json representation o
         </div>
         <q-btn flat round icon="close" class="q-ml-auto" @click="todoStore.currentTaskId = null" />
       </q-bar>
+    </q-card-section>
+
+    <q-separator />
+
+    <q-card-section class="row items-center q-gutter-md">
+      <div class="text-caption row items-center q-gutter-xs">
+        <span>Due:</span>
+        <q-btn-dropdown
+          dense
+          flat
+          size="sm"
+          color="primary"
+          :label="formatDue(currentTask?.timestamps?.due || null)"
+        >
+          <q-list style="min-width: 200px">
+            <q-item clickable v-ripple @click.stop="setDue(currentTask, 'today')">
+              <q-item-section>Today</q-item-section>
+            </q-item>
+            <q-item clickable v-ripple @click.stop="setDue(currentTask, 'tomorrow')">
+              <q-item-section>Tomorrow</q-item-section>
+            </q-item>
+            <q-item clickable v-ripple @click.stop="setDue(currentTask, 'nextWeek')">
+              <q-item-section>Next Monday</q-item-section>
+            </q-item>
+            <q-item clickable v-ripple @click.stop="setDue(currentTask, 'nextMonth')">
+              <q-item-section>First of Next Month</q-item-section>
+            </q-item>
+            <q-item clickable v-ripple @click.stop="setDue(currentTask, 'nextQuarter')">
+              <q-item-section>First of Next Quarter</q-item-section>
+            </q-item>
+          </q-list>
+        </q-btn-dropdown>
+      </div>
+      <div class="text-caption row items-center q-gutter-xs">
+        <span>Status:</span>
+        <q-select
+          dense
+          outlined
+          emit-value
+          map-options
+          :options="statusOptions"
+          v-model="currentTask.status"
+          @update:model-value="(val) => setStatus(currentTask, val)"
+          style="min-width: 180px"
+        />
+      </div>
+    </q-card-section>
+
+    <q-separator />
+
+    <q-card-section>
       <VAceEditor
         ref="aceRef"
         v-model:value="states.content"
@@ -60,7 +111,7 @@ task object as a prop // We should show an editor with the json representation o
 </template>
 
 <script setup>
-import { ref, watch, reactive } from 'vue'
+import { ref, watch, reactive, computed } from 'vue'
 import { useTodoStore } from 'stores/todo'
 import { VAceEditor } from 'vue3-ace-editor'
 import 'src/plugins/ace-config'
@@ -72,6 +123,7 @@ const states = reactive({
   theme: 'github_dark',
   content: null,
 })
+const currentTask = computed(() => todoStore.taskById(todoStore.currentTaskId) || {})
 
 const buttons = ref({
   Save: {
@@ -95,6 +147,14 @@ const buttons = ref({
   },
 })
 
+const statusOptions = computed(() => {
+  const set = new Set(['not_started', 'in_progress', 'blocked', 'completed', 'skipped'])
+  todoStore.allTasksCombined.forEach((t) => {
+    if (t.status) set.add(t.status)
+  })
+  return Array.from(set).map((s) => ({ label: s, value: s }))
+})
+
 function load_editorContent() {
   console.log('Loading content for current task:', todoStore.currentTaskId)
   if (todoStore.currentTaskId) {
@@ -109,6 +169,84 @@ function load_editorContent() {
       states.content = JSON.stringify(todoStore.taskById(todoStore.currentTaskId), null, 2)
       console.log('JSON content:', states.content)
     }
+  }
+}
+
+function cob(date) {
+  const d = new Date(date)
+  d.setHours(17, 0, 0, 0)
+  return d
+}
+
+function nextMonday(base) {
+  const d = new Date(base)
+  const day = d.getDay()
+  const diff = (8 - day) % 7 || 7
+  d.setDate(d.getDate() + diff)
+  return d
+}
+
+function firstOfNextMonth(base) {
+  const d = new Date(base)
+  d.setMonth(d.getMonth() + 1, 1)
+  return d
+}
+
+function firstOfNextQuarter(base) {
+  const d = new Date(base)
+  const month = d.getMonth()
+  const nextQuarterMonth = Math.floor(month / 3) * 3 + 3
+  d.setMonth(nextQuarterMonth, 1)
+  return d
+}
+
+function formatDue(due) {
+  if (!due) return 'No due date'
+  const date = new Date(due)
+  if (isNaN(date)) return 'Invalid'
+  const options = { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }
+  return date.toLocaleString(undefined, options)
+}
+
+async function setDue(task, option) {
+  if (!task) return
+  const now = new Date()
+  let target
+  if (option === 'today') target = cob(new Date())
+  else if (option === 'tomorrow') target = cob(new Date(now.setDate(now.getDate() + 1)))
+  else if (option === 'nextWeek') target = cob(nextMonday(new Date()))
+  else if (option === 'nextMonth') target = cob(firstOfNextMonth(new Date()))
+  else if (option === 'nextQuarter') target = cob(firstOfNextQuarter(new Date()))
+  else return
+
+  const ts = { ...(task.timestamps || {}) }
+  const newIso = target.toISOString()
+  const due = ts.due ? new Date(ts.due) : null
+  const tickle = ts.tickle ? new Date(ts.tickle) : null
+  if (!due || due < target) ts.due = newIso
+  if (!tickle || tickle < target) ts.tickle = newIso
+
+  const updates = { ...task, timestamps: ts }
+  try {
+    await todoStore.updateTask(task.task_id, updates)
+    task.timestamps = updates.timestamps
+    todoStore.applyFilters()
+    load_editorContent()
+  } catch (err) {
+    console.error('Failed to update due date:', err)
+  }
+}
+
+async function setStatus(task, status) {
+  if (!task || !status) return
+  const updates = { ...task, status }
+  try {
+    await todoStore.updateTask(task.task_id, updates)
+    task.status = status
+    todoStore.applyFilters()
+    load_editorContent()
+  } catch (err) {
+    console.error('Failed to update status:', err)
   }
 }
 
