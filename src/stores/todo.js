@@ -249,11 +249,15 @@ export const useTodoStore = defineStore('todo', {
       this.archivedTasks = normalized.filter((t) => isArchivedStatus(t.status))
       this.allTemplates = await listTemplates()
       this.applyFilters()
+      console.log(
+        'checkTemplates scheduling after loadTasks:',
+        this.checkTemplatesTimer || 'none',
+        'at',
+        new Date().toISOString(),
+      )
       if (!this.checkTemplatesTimer) {
         this.checkTemplatesTimer = setTimeout(() => {
-          console.log(
-            'This is a placeholder alert for template checks.\n\nThis will be replaced with a more sophisticated notification system in the future.',
-          )
+          console.log('checkTemplates timer triggered at:', new Date().toISOString())
           this.checkTemplates()
           this.checkTemplatesTimer = null
         }, 10000)
