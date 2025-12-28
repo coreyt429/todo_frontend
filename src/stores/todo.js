@@ -42,6 +42,8 @@ export const useTodoStore = defineStore('todo', {
         ? JSON.parse(localStorage.getItem('showCompleted'))
         : false,
     ), // Flag to show completed tasks
+    checkTemplatesLock: false,
+    checkTemplatesTimer: null,
     activeTasks: [
       {
         name: 'Tasks Loading',
@@ -247,12 +249,15 @@ export const useTodoStore = defineStore('todo', {
       this.archivedTasks = normalized.filter((t) => isArchivedStatus(t.status))
       this.allTemplates = await listTemplates()
       this.applyFilters()
-      setTimeout(() => {
-        console.log(
-          'This is a placeholder alert for template checks.\n\nThis will be replaced with a more sophisticated notification system in the future.',
-        )
-        this.checkTemplates()
-      }, 10000)
+      if (!this.checkTemplatesTimer) {
+        this.checkTemplatesTimer = setTimeout(() => {
+          console.log(
+            'This is a placeholder alert for template checks.\n\nThis will be replaced with a more sophisticated notification system in the future.',
+          )
+          this.checkTemplates()
+          this.checkTemplatesTimer = null
+        }, 10000)
+      }
     },
     setCurrentTask(task) {
       // Sets the current task or template based on the provided task object
@@ -582,6 +587,11 @@ export const useTodoStore = defineStore('todo', {
     async checkTemplates() {
       // Checks all templates against today's date and creates tasks if criteria match
       console.log('checkTemplates() called from:', new Error().stack)
+      if (this.checkTemplatesLock) {
+        console.log('checkTemplates already running, skipping duplicate call.')
+        return
+      }
+      this.checkTemplatesLock = true
       for (const template of this.allTemplates) {
         console.log(`checkTemplates: Checking template ${template.template_id}...`)
         console.log(`checkTemplates: Template criteria: ${JSON.stringify(template.criteria)}`)
@@ -615,6 +625,7 @@ export const useTodoStore = defineStore('todo', {
         }
       }
       console.log('Templates checked and updated if necessary.')
+      this.checkTemplatesLock = false
     },
   },
 })
