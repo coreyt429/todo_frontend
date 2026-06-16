@@ -245,7 +245,7 @@ const buttons = ref({
     label: 'Reset',
     icon: 'refresh',
     color: 'secondary',
-    action: () => load_editorContent(),
+    action: () => load_editorContent({ refresh: true }),
   },
 
   Delete: {
@@ -257,7 +257,15 @@ const buttons = ref({
 })
 
 const statusOptions = computed(() => {
-  const set = new Set(['not_started', 'in_progress', 'blocked', 'completed', 'skipped'])
+  const set = new Set([
+    'not_started',
+    'in_progress',
+    'blocked',
+    'review',
+    'completed',
+    'skipped',
+    'cancelled',
+  ])
   todoStore.allTasksCombined.forEach((t) => {
     if (t.status) set.add(t.status)
   })
@@ -271,9 +279,13 @@ const contextOptions = computed(() => {
   return Array.from(set).map((c) => ({ label: c, value: c }))
 })
 
-function load_editorContent() {
+async function load_editorContent({ refresh = false } = {}) {
   console.log('Loading content for current task:', todoStore.currentTaskId)
   if (todoStore.currentTaskId) {
+    const task = todoStore.taskById(todoStore.currentTaskId)
+    if (refresh && task?.task_id) {
+      await todoStore.loadTask(todoStore.currentTaskId)
+    }
     console.log('Current task ID:', todoStore.currentTaskId)
     console.log('Current language:', states.lang)
     if (states.lang === 'yaml') {
@@ -441,11 +453,11 @@ load_editorContent()
 
 watch(
   () => todoStore.currentTaskId,
-  (newTaskId) => {
+  async (newTaskId) => {
     console.log('Current task ID changed:', newTaskId)
     if (newTaskId) {
       console.log('Loading editor content for new task ID:', newTaskId)
-      load_editorContent()
+      await load_editorContent({ refresh: true })
     }
     console.log('Current task updated:', newTaskId)
     console.log('Task JSON:', states.content.value)

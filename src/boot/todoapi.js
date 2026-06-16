@@ -61,13 +61,35 @@ async function deleteTask(taskId) {
 }
 
 /**
+ * Fetch a single task.
+ * @param {string} taskId - UUID of the task to fetch.
+ * @returns {Promise<Object>} Task record.
+ */
+async function getTask(taskId) {
+  const { data } = await api.get(`/task/${encodeURIComponent(taskId)}`)
+  return data?.task || data?.data || data
+}
+
+/**
  * Fetch all tasks.
+ * @param {Object} options - Optional list filters.
+ * @param {string|null} options.context - Context to include.
+ * @param {string[]} options.excludeStatus - Statuses to exclude.
  * @returns {Promise<Array>} List of tasks.
  */
-async function listTasks() {
-  const { data } = await api.get('/task/')
+async function listTasks(options = {}) {
+  const params = new URLSearchParams()
+  const context = String(options.context || '').trim()
+  if (context) {
+    params.set('context', context)
+  }
+  if (Array.isArray(options.excludeStatus) && options.excludeStatus.length) {
+    params.set('exclude_status', options.excludeStatus.join(','))
+  }
+  const query = params.toString()
+  const { data } = await api.get(query ? `/task?${query}` : '/task/')
   console.log('Fetched tasks:', data)
-  return data
+  return Array.isArray(data) ? data : data?.tasks || data?.items || data?.data || []
 }
 
 /**
@@ -161,6 +183,7 @@ export default ({ app }) => {
   // Expose helpers globally so Pinia stores or components can use them via this.$todoApi
   app.config.globalProperties.$todoApi = {
     createTask,
+    getTask,
     updateTask,
     deleteTask,
     listTasks,
@@ -171,6 +194,7 @@ export default ({ app }) => {
 }
 export {
   createTask,
+  getTask,
   updateTask,
   deleteTask,
   listTasks,

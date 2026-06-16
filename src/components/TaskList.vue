@@ -186,7 +186,15 @@ const contextSelection = computed({
 })
 
 const statusOptions = computed(() => {
-  const set = new Set(['not_started', 'in_progress', 'blocked', 'completed', 'skipped'])
+  const set = new Set([
+    'not_started',
+    'in_progress',
+    'blocked',
+    'review',
+    'completed',
+    'skipped',
+    'cancelled',
+  ])
   todoStore.allTasksCombined.forEach((t) => {
     if (t.status) set.add(t.status)
   })
@@ -197,7 +205,10 @@ const status_icons = {
   not_started: 'inbox',
   in_progress: 'construction',
   blocked: 'block',
+  review: 'rate_review',
   completed: 'check_circle',
+  skipped: 'skip_next',
+  cancelled: 'cancel',
 }
 const priority_colors = {
   high: 'red',

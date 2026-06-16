@@ -4,6 +4,7 @@
       <q-toolbar>
         <q-btn flat dense round icon="menu" aria-label="Menu" @click="toggleLeftDrawer" />
         <q-toolbar-title> {{ todoStore.title }} </q-toolbar-title>
+        <div class="text-caption">Version {{ appVersion }}</div>
       </q-toolbar>
     </q-header>
 
@@ -57,6 +58,7 @@ import EssentialLink from 'components/EssentialLink.vue'
 import { onMounted } from 'vue'
 import { useTodoStore } from 'stores/todo'
 import { backupData, restoreData } from 'src/boot/todoapi'
+import { version as appVersion } from '../../package.json'
 
 const linksList = menuDefs
 const todoStore = useTodoStore()

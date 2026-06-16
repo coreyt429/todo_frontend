@@ -3,6 +3,7 @@ import { ref, watch } from 'vue'
 import { dateHelper } from 'src/plugins/dateUtils.js'
 import {
   createTask,
+  getTask,
   updateTask as apiUpdateTask,
   deleteTask,
   listTasks,
@@ -16,8 +17,17 @@ import { date } from 'quasar'
 
 const filterDefaults = {
   // Default filters for tasks
-  status: ['not_started', 'in_progress', 'blocked', 'Not set'],
-  statusList: ['not_started', 'in_progress', 'blocked', 'completed', 'skipped', 'Not set'],
+  status: ['not_started', 'in_progress', 'blocked', 'review', 'Not set'],
+  statusList: [
+    'not_started',
+    'in_progress',
+    'blocked',
+    'review',
+    'completed',
+    'skipped',
+    'cancelled',
+    'Not set',
+  ],
   priority: ['low', 'medium', 'high', 'Not set'],
   startDate: dateHelper.All.Start,
   endDate: dateHelper.All.End,
@@ -27,7 +37,7 @@ const filterDefaults = {
   context: 'All',
 }
 
-const archivedStatuses = ['completed', 'skipped']
+const archivedStatuses = ['completed', 'skipped', 'cancelled']
 const isArchivedStatus = (status) => archivedStatuses.includes((status || '').toLowerCase())
 
 function parseTimeString(timeValue) {
@@ -298,7 +308,7 @@ export const useTodoStore = defineStore('todo', {
     shouldIncludeArchived(filterDefs = {}) {
       const status = filterDefs.status || []
       return (
-        (Array.isArray(status) && (status.includes('completed') || status.includes('skipped'))) ||
+        (Array.isArray(status) && status.some((s) => archivedStatuses.includes(s))) ||
         this.showCompleted
       )
     },
@@ -312,7 +322,14 @@ export const useTodoStore = defineStore('todo', {
     async loadTasks() {
       // Fetches all tasks and templates from the API and applies filters
       console.log('loadTasks() called from:', new Error().stack)
-      const tasks = await listTasks()
+      const context =
+        this.filters.context && !['All', 'Unassigned'].includes(this.filters.context)
+          ? this.filters.context
+          : null
+      const tasks = await listTasks({
+        context,
+        excludeStatus: this.showCompleted ? [] : archivedStatuses,
+      })
       const normalized = tasks.map((t) => ({
         ...t,
         context: t.context ?? null,
@@ -334,6 +351,18 @@ export const useTodoStore = defineStore('todo', {
           this.checkTemplatesTimer = null
         }, 10000)
       }
+    },
+    async loadTask(taskId) {
+      if (!taskId) return null
+      const task = await getTask(taskId)
+      if (!task?.task_id) return null
+      const normalized = {
+        ...task,
+        context: task.context ?? null,
+      }
+      this.placeTask(normalized)
+      this.applyFilters()
+      return normalized
     },
     setCurrentTask(task) {
       // Sets the current task or template based on the provided task object
@@ -728,18 +757,26 @@ watch(
   (newVal) => {
     console.log('showCompleted changed:', newVal)
     localStorage.setItem('showCompleted', JSON.stringify(newVal))
+    const store = useTodoStore()
     if (newVal) {
-      const store = useTodoStore()
       const statusList = Array.isArray(store.filters.status) ? [...store.filters.status] : []
-      if (!statusList.includes('completed')) statusList.push('completed')
-      if (!statusList.includes('skipped')) statusList.push('skipped')
+      archivedStatuses.forEach((status) => {
+        if (!statusList.includes(status)) statusList.push(status)
+      })
       store.setFilters({ status: statusList })
     } else {
-      const store = useTodoStore()
       const statusList = Array.isArray(store.filters.status) ? [...store.filters.status] : []
       store.setFilters({
-        status: statusList.filter((status) => !['completed', 'skipped'].includes(status)),
+        status: statusList.filter((status) => !archivedStatuses.includes(status)),
       })
     }
+    store.loadTasks()
+  },
+)
+
+watch(
+  () => useTodoStore().filters.context,
+  () => {
+    useTodoStore().loadTasks()
   },
 )
