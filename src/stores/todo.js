@@ -30,6 +30,78 @@ const filterDefaults = {
 const archivedStatuses = ['completed', 'skipped']
 const isArchivedStatus = (status) => archivedStatuses.includes((status || '').toLowerCase())
 
+function parseTimeString(timeValue) {
+  if (!timeValue || typeof timeValue !== 'string') return null
+  const match = timeValue.trim().match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?$/)
+  if (!match) return null
+  const hours = Number(match[1])
+  const minutes = Number(match[2])
+  const seconds = Number(match[3] || 0)
+  if (
+    Number.isNaN(hours) ||
+    Number.isNaN(minutes) ||
+    Number.isNaN(seconds) ||
+    hours < 0 ||
+    hours > 23 ||
+    minutes < 0 ||
+    minutes > 59 ||
+    seconds < 0 ||
+    seconds > 59
+  ) {
+    return null
+  }
+  return { hours, minutes, seconds }
+}
+
+function buildTemplateDueDate(template) {
+  const base = new Date()
+  const templateTime =
+    parseTimeString(template?.criteria?.time) ||
+    parseTimeString(template?.timestamps?.due ? new Date(template.timestamps.due).toTimeString().slice(0, 8) : null) ||
+    parseTimeString('17:00')
+  if (!templateTime) return base.toISOString()
+
+  const due = new Date(base)
+  due.setHours(templateTime.hours, templateTime.minutes, templateTime.seconds, 0)
+  return due.toISOString()
+}
+
+function playActionSound(kind = 'update') {
+  if (typeof window === 'undefined') return
+  const AudioContextClass = window.AudioContext || window.webkitAudioContext
+  if (!AudioContextClass) return
+
+  try {
+    const context = new AudioContextClass()
+    const gain = context.createGain()
+    gain.gain.value = 0.0001
+    gain.connect(context.destination)
+
+    const toneSets = {
+      create: [523.25, 659.25],
+      update: [440, 554.37],
+      delete: [330, 261.63],
+      complete: [659.25, 783.99],
+    }
+    const tones = toneSets[kind] || toneSets.update
+    const start = context.currentTime + 0.01
+
+    gain.gain.exponentialRampToValueAtTime(0.06, start)
+    tones.forEach((frequency, index) => {
+      const oscillator = context.createOscillator()
+      oscillator.type = 'sine'
+      oscillator.frequency.value = frequency
+      oscillator.connect(gain)
+      oscillator.start(start + index * 0.09)
+      oscillator.stop(start + index * 0.09 + 0.08)
+    })
+    gain.gain.exponentialRampToValueAtTime(0.0001, start + tones.length * 0.09 + 0.12)
+    setTimeout(() => context.close().catch(() => {}), 400)
+  } catch (error) {
+    console.warn('Unable to play feedback sound:', error)
+  }
+}
+
 export const useTodoStore = defineStore('todo', {
   state: () => ({
     title: 'Todo List', // Default title for the todo list
@@ -491,9 +563,10 @@ export const useTodoStore = defineStore('todo', {
       newTask.type = template.task_type || 'task'
       newTask.status = 'not_started'
       newTask.priority = template.priority || 'low'
+      const templateDue = buildTemplateDueDate(template)
       newTask.timestamps = {
-        due: dateHelper.Today.BusinessClosing(),
-        tickle: dateHelper.Today.BusinessOpening(),
+        due: templateDue,
+        tickle: templateDue,
       }
       console.log(
         `createTaskFromTemplate(): New Task after type, status, priority, timestamps: ${JSON.stringify(newTask)}`,
@@ -505,6 +578,8 @@ export const useTodoStore = defineStore('todo', {
       this.placeTask(newTask)
       // this.applyFilters()
       console.log('createTaskFromTemplate: New task created from template:', newTask)
+      playActionSound('create')
+      return newTask
     },
     async updateTask(taskId, updates) {
       console.log(
@@ -548,6 +623,7 @@ export const useTodoStore = defineStore('todo', {
             await this.propagateDueToAncestors(taskId, merged.timestamps.due)
           }
           this.applyFilters()
+          playActionSound('update')
         }
       } else if (updates.template_id) {
         success = await updateTemplate(updates.template_id, updates)
@@ -557,6 +633,7 @@ export const useTodoStore = defineStore('todo', {
             Object.assign(this.allTemplates[index], updates)
           }
           this.applyFilters()
+          playActionSound('update')
         }
       } else {
         console.warn('No task_id or template_id provided for update:', updates)
@@ -571,6 +648,7 @@ export const useTodoStore = defineStore('todo', {
         if (success) {
           this.allTemplates = this.allTemplates.filter((t) => t.template_id !== taskId)
           this.applyFilters()
+          playActionSound('delete')
         }
         return
       }
@@ -579,6 +657,7 @@ export const useTodoStore = defineStore('todo', {
         this.activeTasks = this.activeTasks.filter((t) => t.task_id !== taskId)
         this.archivedTasks = this.archivedTasks.filter((t) => t.task_id !== taskId)
         this.applyFilters()
+        playActionSound('delete')
       }
     },
     checkTemplateCriteria(template) {
@@ -630,7 +709,7 @@ export const useTodoStore = defineStore('todo', {
           )
 
           if (templateTasksToday.length < 1) {
-            const newTask = this.createTaskFromTemplate(template)
+            const newTask = await this.createTaskFromTemplate(template)
             console.log(
               `checkTemplates: Created new task from template ${template.template_id}:`,
               newTask,

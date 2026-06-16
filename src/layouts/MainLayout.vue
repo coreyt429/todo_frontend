@@ -23,6 +23,7 @@
       <q-separator />
       <div class="row justify-end q-mt-md q-gutter-sm">
         <q-btn icon="download" color="primary" @click="downloadBackup" round flat />
+        <q-btn icon="upload" color="primary" @click="triggerRestorePick" round flat />
         <q-btn icon="filter_list" color="primary" @click="showFilters = !showFilters" round flat />
         <q-btn
           :icon="todoStore.viewMode === 'map' ? 'list' : 'account_tree'"
@@ -40,6 +41,7 @@
           <q-checkbox v-model="todoStore.showCompleted" label="Show Completed" color="primary" />
         </q-card-section>
       </q-card>
+      <input ref="restoreInput" type="file" accept="application/json" hidden @change="handleRestoreFile" />
     </q-drawer>
 
     <q-page-container>
@@ -54,11 +56,12 @@ import { ref } from 'vue'
 import EssentialLink from 'components/EssentialLink.vue'
 import { onMounted } from 'vue'
 import { useTodoStore } from 'stores/todo'
-import { backupData } from 'src/boot/todoapi'
+import { backupData, restoreData } from 'src/boot/todoapi'
 
 const linksList = menuDefs
 const todoStore = useTodoStore()
 const showFilters = ref(false)
+const restoreInput = ref(null)
 
 onMounted(() => {
   todoStore.loadTasks()
@@ -82,6 +85,27 @@ async function downloadBackup() {
     URL.revokeObjectURL(link.href)
   } catch (error) {
     console.error('Error downloading tasks:', error)
+  }
+}
+
+function triggerRestorePick() {
+  restoreInput.value?.click()
+}
+
+async function handleRestoreFile(event) {
+  const file = event.target.files?.[0]
+  event.target.value = ''
+  if (!file) return
+
+  try {
+    const text = await file.text()
+    const payload = JSON.parse(text)
+    const response = await restoreData(payload)
+    await todoStore.loadTasks()
+    console.log('Restore completed:', response)
+  } catch (error) {
+    console.error('Error restoring backup:', error)
+    alert(`Failed to restore backup: ${error.message}`)
   }
 }
 

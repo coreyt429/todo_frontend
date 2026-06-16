@@ -147,6 +147,12 @@ async function backupData() {
   return data
 }
 
+async function restoreData(backupPayload) {
+  const { data } = await api.post('/restore', backupPayload)
+  console.log('Restore response:', data)
+  return data
+}
+
 export default ({ app }) => {
   console.log('Initializing todoapi plugin')
   app.config.globalProperties.$apiKey = localStorage.getItem('auth_token') || ''
@@ -159,6 +165,8 @@ export default ({ app }) => {
     deleteTask,
     listTasks,
     searchTasksByField,
+    backupData,
+    restoreData,
   }
 }
 export {
@@ -172,6 +180,7 @@ export {
   deleteTemplate,
   listTemplates,
   backupData,
+  restoreData,
 }
 
 // The following functions can be used to interact with the Todo API

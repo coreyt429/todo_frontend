@@ -110,6 +110,32 @@ task object as a prop // We should show an editor with the json representation o
     <q-separator />
 
     <q-card-section>
+      <div v-if="reportingSummary" class="reporting-panel q-mb-md">
+        <div class="row items-start justify-between q-mb-sm">
+          <div>
+            <div class="text-subtitle2">Template reporting</div>
+            <div class="text-caption text-grey-7">
+              {{ reportingSummary.completedCount }} completions in the last 52 weeks
+              <span v-if="reportingSummary.latestCompletion">
+                , latest on {{ formatReportingDate(reportingSummary.latestCompletion) }}
+              </span>
+            </div>
+          </div>
+          <div class="text-caption text-grey-7">
+            {{ reportingSummary.activeWeeks }} active weeks
+          </div>
+        </div>
+        <div class="reporting-grid" aria-label="Completions per week over the last 52 weeks">
+          <div
+            v-for="week in reportingSummary.weeks"
+            :key="week.label"
+            class="reporting-bar-wrap"
+            :title="`${week.label}: ${week.count} completion${week.count === 1 ? '' : 's'}`"
+          >
+            <div class="reporting-bar" :style="weekBarStyle(week.count, reportingSummary.maxCount)" />
+          </div>
+        </div>
+      </div>
       <VAceEditor
         ref="aceRef"
         v-model:value="states.content"
@@ -158,6 +184,55 @@ const states = reactive({
   content: null,
 })
 const currentTask = computed(() => todoStore.taskById(todoStore.currentTaskId) || {})
+const reportingSummary = computed(() => {
+  const templateId = currentTask.value?.template_id
+  if (!templateId) return null
+
+  const now = new Date()
+  const weekMs = 7 * 24 * 60 * 60 * 1000
+  const completedTasks = todoStore.allTasksCombined.filter(
+    (task) =>
+      task?.template_id === templateId &&
+      task?.status === 'completed' &&
+      task?.timestamps?.completed,
+  )
+
+  const weeks = Array.from({ length: 52 }, (_, index) => {
+    const weekOffset = 51 - index
+    const weekStart = new Date(now.getTime() - weekOffset * weekMs)
+    const weekEnd = new Date(weekStart.getTime() + weekMs)
+    const count = completedTasks.filter((task) => {
+      const completedValue = task?.timestamps?.completed
+      if (!completedValue) return false
+      const completedDate = new Date(completedValue)
+      return !isNaN(completedDate) && completedDate >= weekStart && completedDate < weekEnd
+    }).length
+    return {
+      count,
+      label: weekStart.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }),
+    }
+  })
+
+  const completedCount = completedTasks.filter((task) => {
+    const completedValue = task?.timestamps?.completed
+    if (!completedValue) return false
+    const completedDate = new Date(completedValue)
+    return !isNaN(completedDate)
+  }).length
+
+  const latestCompletion = completedTasks
+    .map((task) => new Date(task?.timestamps?.completed))
+    .filter((date) => !isNaN(date))
+    .sort((a, b) => b - a)[0]
+
+  return {
+    weeks,
+    completedCount,
+    latestCompletion: latestCompletion ? latestCompletion.toISOString() : null,
+    activeWeeks: weeks.filter((week) => week.count > 0).length,
+    maxCount: Math.max(...weeks.map((week) => week.count), 0),
+  }
+})
 
 const buttons = ref({
   Save: {
@@ -280,10 +355,15 @@ async function setDue(task, option) {
 
 async function setStatus(task, status) {
   if (!task || !status) return
-  const updates = { ...task, status }
+  const timestamps = { ...(task.timestamps || {}) }
+  if (status === 'completed' && !timestamps.completed) {
+    timestamps.completed = new Date().toISOString()
+  }
+  const updates = { ...task, status, timestamps }
   try {
     await todoStore.updateTask(task.task_id, updates)
     task.status = status
+    task.timestamps = updates.timestamps
     todoStore.applyFilters()
     load_editorContent()
   } catch (err) {
@@ -294,6 +374,23 @@ async function setStatus(task, status) {
 function formatContext(ctx) {
   if (ctx === null || ctx === undefined || ctx === '') return 'Unassigned'
   return ctx
+}
+
+function formatReportingDate(iso) {
+  if (!iso) return ''
+  const date = new Date(iso)
+  if (isNaN(date)) return ''
+  return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
+}
+
+function weekBarStyle(count, maxCount) {
+  const minHeight = 4
+  const normalized = maxCount > 0 ? count / maxCount : 0
+  const height = Math.max(minHeight, Math.round(normalized * 100))
+  return {
+    height: `${height}%`,
+    opacity: count > 0 ? 1 : 0.18,
+  }
 }
 
 async function setContext(task, context) {
@@ -402,5 +499,40 @@ document.addEventListener('keydown', (event) => {
 }
 .vue-ace-editor .ace_content {
   height: 100%;
+}
+
+.reporting-panel {
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  border-radius: 12px;
+  padding: 12px;
+  background: linear-gradient(180deg, rgba(25, 118, 210, 0.08), rgba(25, 118, 210, 0.02));
+}
+
+.reporting-grid {
+  display: grid;
+  grid-template-columns: repeat(13, minmax(0, 1fr));
+  gap: 6px;
+  align-items: end;
+  height: 140px;
+}
+
+.reporting-bar-wrap {
+  height: 100%;
+  display: flex;
+  align-items: flex-end;
+}
+
+.reporting-bar {
+  width: 100%;
+  min-height: 4px;
+  border-radius: 999px 999px 6px 6px;
+  background: linear-gradient(180deg, #1976d2, #64b5f6);
+  transition: height 0.15s ease;
+}
+
+@media (max-width: 768px) {
+  .reporting-grid {
+    grid-template-columns: repeat(8, minmax(0, 1fr));
+  }
 }
 </style>

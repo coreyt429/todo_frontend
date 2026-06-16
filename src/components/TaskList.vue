@@ -137,7 +137,7 @@
               </q-btn-dropdown>
             </div>
           </q-toolbar>
-          <div class="text-subtitle2">{{ task.notes }}</div>
+          <div v-if="task.notes" class="text-subtitle2 task-notes" v-html="renderNotes(task.notes)"></div>
         </q-card-section>
       </q-card>
     </li>
@@ -242,6 +242,26 @@ function format_due_date(due) {
   return `${pad(date.getMonth() + 1)}/${pad(date.getDate())} ${time12}`
 }
 
+function escapeHtml(value) {
+  return String(value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+}
+
+function renderNotes(notes) {
+  const escaped = escapeHtml(notes)
+  return escaped.replace(
+    /\b((?:https?:\/\/|www\.)[^\s<]+)/gi,
+    (match) => {
+      const href = match.startsWith('http') ? match : `https://${match}`
+      return `<a href="${href}" target="_blank" rel="noopener noreferrer">${match}</a>`
+    },
+  )
+}
+
 function cob(date) {
   const d = new Date(date)
   d.setHours(17, 0, 0, 0)
@@ -302,10 +322,15 @@ async function setDue(task, option) {
 
 async function setStatus(task, status) {
   if (!status) return
-  const updates = { ...task, status }
+  const timestamps = { ...(task.timestamps || {}) }
+  if (status === 'completed' && !timestamps.completed) {
+    timestamps.completed = new Date().toISOString()
+  }
+  const updates = { ...task, status, timestamps }
   try {
     await todoStore.updateTask(task.task_id, updates)
     task.status = status
+    task.timestamps = updates.timestamps
     todoStore.applyFilters()
   } catch (err) {
     console.error('Failed to update status:', err)
@@ -319,6 +344,16 @@ async function setStatus(task, status) {
   width: 100%;
   box-sizing: border-box;
 }
+
+.task-notes {
+  word-break: break-word;
+}
+
+.task-notes a {
+  color: inherit;
+  text-decoration: underline;
+}
+
 ul {
   list-style-type: none;
   padding: 0;
